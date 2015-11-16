@@ -19,12 +19,13 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "CameraBehaviorVehicleSpline.h"
 
+#include <Ogre.h>
+
 #include "Application.h"
 #include "Beam.h"
 #include "Console.h"
 #include "InputEngine.h"
 #include "Language.h"
-#include "Ogre.h"
 #include "Settings.h"
 
 using namespace Ogre;
@@ -160,11 +161,13 @@ void CameraBehaviorVehicleSpline::activate(const CameraManager::CameraContext &c
 	{
 		gEnv->cameraManager->switchToNextBehavior();
 		return;
-	} else if ( reset )
+	} 
+	else if ( reset )
 	{
 		this->reset(ctx);
 		createSpline(ctx);
 	}
+	ctx.mCurrTruck->GetCameraContext()->behavior = RoR::PerVehicleCameraContext::CAMERA_BEHAVIOR_VEHICLE_SPLINE;
 }
 
 void CameraBehaviorVehicleSpline::reset(const CameraManager::CameraContext &ctx)

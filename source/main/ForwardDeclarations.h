@@ -37,7 +37,9 @@ namespace RoR
 	class  MainThread;
 	class  OgreSubsystem;
 	struct PlatformUtils;
+    class  RigLoadingProfiler;
 	class  SceneMouse;
+	class  SkinManager;
 	class  Console;
 
 	namespace GUI

@@ -18,6 +18,8 @@ You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 // created by thomas fischer, 4th of January 2009
+
+#pragma once
 #ifndef __Settings_H_
 #define __Settings_H_
 
@@ -60,6 +62,7 @@ public:
 	void createGUID();
 
 	int GetFlaresMode(int default_value = 2);
+	int GetGearBoxMode(int default_value = 0);
 
 #ifdef USE_ANGELSCRIPT
 	// we have to add this to be able to use the class as reference inside scripts
@@ -95,7 +98,7 @@ protected:
 	// Cached config data
 
 	int m_flares_mode; // -1: unknown, -2: default, 0+: mode ID
-
+	int m_gearbox_mode;
 };
 
 #endif // __Settings_H_

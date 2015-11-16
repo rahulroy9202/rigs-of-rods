@@ -103,7 +103,7 @@ Water::Water(const Ogre::ConfigFile &mTerrainConfig) :
 	fade = gEnv->sceneManager->getFogColour();
 	waterSceneMgr = gEnv->sceneManager;
 
-	wHeight = PARSEREAL(mTerrainConfig.getSetting("WaterLine", "General"));;
+	wHeight = PARSEREAL(mTerrainConfig.getSetting("WaterLine", "General"));
 	wbHeight = PARSEREAL(mTerrainConfig.getSetting("WaterBottomLine", "General"));
 
 	if (mapSize.x < 1500 && mapSize.z < 1500)
@@ -219,7 +219,7 @@ void Water::processWater(int mType)
 		const RenderSystemCapabilities* caps = Root::getSingleton().getRenderSystem()->getCapabilities();
 		if (!caps->hasCapability(RSC_VERTEX_PROGRAM) || !(caps->hasCapability(RSC_FRAGMENT_PROGRAM)))
 		{
-			OGRE_EXCEPT(1, "Your card does not support vertex and fragment programs, so cannot "
+			OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Your card does not support vertex and fragment programs, so cannot "
 				"run Water effects. Sorry!",
 				"Water effects");
 		}
@@ -230,7 +230,7 @@ void Water::processWater(int mType)
 				!GpuProgramManager::getSingleton().isSyntaxSupported("ps_1_4")
 				)
 			{
-				OGRE_EXCEPT(1, "Your card does not support advanced fragment programs, "
+				OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Your card does not support advanced fragment programs, "
 					"so cannot run Water effects. Sorry!",
 					"Water effects");
 			}
@@ -341,6 +341,7 @@ void Water::processWater(int mType)
 		pPlaneEnt->setMaterialName("tracks/basicwater");
 	}
 
+	pPlaneEnt->setCastShadows(false);
 	//position
 	pWaterNode = gEnv->sceneManager->getRootSceneNode()->createChildSceneNode("WaterPlane");
 	pWaterNode->attachObject(pPlaneEnt);
@@ -355,6 +356,7 @@ void Water::processWater(int mType)
 		mapSize.x * mScale, mapSize.z * mScale, 1, 1, true, 1, 1, 1, Vector3::UNIT_Z);
 	Entity *pE = gEnv->sceneManager->createEntity("bplane", "BottomPlane");
 	pE->setMaterialName("tracks/seabottom");
+	pE->setCastShadows(false);
 
 	//position
 	pBottomNode = gEnv->sceneManager->getRootSceneNode()->createChildSceneNode("BottomWaterPlane");
@@ -412,7 +414,7 @@ void Water::showWave(Vector3 refpos)
 		for (pz=0; pz<WAVEREZ+1; pz++)
 		{
 			Vector3 mapsize = gEnv->terrainManager->getMaxTerrainSize();
-			wbuffer[(pz*(WAVEREZ+1)+px)*8+1]=getHeightWaves(refpos+Vector3((mapsize.x * mScale)/2-(float)px*(mapsize.x * mScale)/WAVEREZ, 0, (float)pz*(mapsize.z * mScale)/WAVEREZ-(mapsize.z * mScale)/2));
+			wbuffer[(pz*(WAVEREZ+1)+px)*8+1]=getHeightWaves(refpos + Vector3((mapsize.x * mScale)*0.5-(float)px*(mapsize.x * mScale)/WAVEREZ, 0, (float)pz*(mapsize.z * mScale)/WAVEREZ-(mapsize.z * mScale)*0.5)) - wHeight;
 		}
 	}
 	//normals
@@ -465,7 +467,7 @@ void Water::update()
 		if (intersection.first && intersection.second > 0.0f)
 			sightPos = lineOfSight.getPoint(intersection.second);
 
-		Real offset = std::min(cameraPos.distance(sightPos), std::min(mapSize.x, mapSize.z) / 2.0f);
+		Real offset = std::min(cameraPos.distance(sightPos), std::min(mapSize.x, mapSize.z) * 0.5f);
 		
 		Vector3 waterPos = cameraPos + (sightPos - cameraPos).normalisedCopy() * offset;
 		Vector3 bottomPos = Vector3(waterPos.x, wbHeight, waterPos.z);
@@ -704,8 +706,8 @@ float Water::getWaveHeight(Vector3 pos)
 	// calculate how high the waves should be at this point
 	//  (mapsize.x * mScale) / 2 = terrain width / 2
 	//  (mapsize.z * mScale) / 2 = terrain height / 2
-	// calculates the distance to the center of the terrain and dives it through 3.000.000
-	float waveheight = (pos - Vector3((mapSize.x * mScale) / 2, wHeight, (mapSize.z * mScale) / 2)).squaredLength() / 3000000.0;
+	// calculate distance to the center of the terrain and divide by 3.000.000
+	float waveheight = (pos - Vector3((mapSize.x * mScale) * 0.5, wHeight, (mapSize.z * mScale) * 0.5)).squaredLength() / 3000000.0;
 	
 	return waveheight;
 }

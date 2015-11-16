@@ -19,6 +19,8 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "CameraBehaviorOrbit.h"
 
+#include <Ogre.h>
+
 #include "Application.h"
 #include "Beam.h"
 #include "BeamFactory.h"
@@ -27,7 +29,6 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "IHeightFinder.h"
 #include "InputEngine.h"
 #include "Language.h"
-#include "Ogre.h"
 #include "TerrainManager.h"
 
 using namespace Ogre;
@@ -139,9 +140,9 @@ void CameraBehaviorOrbit::update(const CameraManager::CameraContext &ctx)
 	if ( ctx.mCurrTruck )
 	{
 		if (BeamFactory::getSingleton().getThreadingMode() == THREAD_MULTI)
-			precedingPosition += ctx.mCurrTruck->nodes[0].Velocity * ctx.mCurrTruck->ttdt;
+			precedingPosition += ctx.mCurrTruck->nodes[0].Velocity * ctx.mCurrTruck->oldframe_global_dt;
 		else
-			precedingPosition += ctx.mCurrTruck->nodes[0].Velocity * ctx.mCurrTruck->tdt;
+			precedingPosition += ctx.mCurrTruck->nodes[0].Velocity * ctx.mCurrTruck->global_dt;
 	}
 
 	Vector3 camPosition = (1.0f / (camRatio + 1.0f)) * desiredPosition + (camRatio / (camRatio + 1.0f)) * precedingPosition;

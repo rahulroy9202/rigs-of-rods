@@ -162,7 +162,6 @@ void SoundScriptManager::trigStop(int truck, int trig, int linkType, int linkIte
 	if (!getTrigState(truck, trig, linkType, linkItemID)) return;
 	
 	state_map[linkType][linkItemID][truck][trig] = false;
-
 	for (int i=0; i < free_trigs[trig]; i++)
 	{
 		SoundScriptInstance* inst = trigs[trig+i*SS_MAX_TRIG];
@@ -170,6 +169,33 @@ void SoundScriptManager::trigStop(int truck, int trig, int linkType, int linkIte
 		if (inst && inst->truck == truck && inst->sound_link_type == linkType && inst->sound_link_item_id == linkItemID)
 		{
 			inst->stop();
+		}
+	}
+}
+
+void SoundScriptManager::trigKill(Beam *truck, int trig, int linkType, int linkItemID)
+{
+	if (disabled) return;
+
+	if (truck)
+	{
+		trigKill(truck->trucknum, trig, linkType, linkItemID);
+	}
+}
+
+void SoundScriptManager::trigKill(int truck, int trig, int linkType, int linkItemID)
+{
+	if (disabled) return;
+	if (!getTrigState(truck, trig, linkType, linkItemID)) return;
+
+	state_map[linkType][linkItemID][truck][trig] = false;
+	for (int i = 0; i < free_trigs[trig]; i++)
+	{
+		SoundScriptInstance* inst = trigs[trig + i*SS_MAX_TRIG];
+
+		if (inst && inst->truck == truck && inst->sound_link_type == linkType && inst->sound_link_item_id == linkItemID)
+		{
+			inst->kill();
 		}
 	}
 }
@@ -275,7 +301,8 @@ SoundScriptTemplate* SoundScriptManager::createTemplate(String name, String grou
 	// first, search if there is a template name collision
 	if (templates.find(name) != templates.end())
 	{
-		OGRE_EXCEPT(Exception::ERR_DUPLICATE_ITEM, "SoundScript with the name " + name + " already exists.", "SoundScriptManager::createTemplate");
+		LOG("SoundScriptManager::createTemplate(): SoundScript with name [" + name + "] already exists, skipping...");
+		return nullptr;
 	}
 
 	SoundScriptTemplate *ssi = new SoundScriptTemplate(name, groupname, filename, loading_base);
@@ -502,6 +529,9 @@ bool SoundScriptTemplate::setParameter(Ogre::StringVector vec)
 		if (vec[1] == String("brake")) {trigger_source=SS_TRIG_BRAKE; return true;};
 		if (vec[1] == String("pump")) {trigger_source=SS_TRIG_PUMP; return true;};
 		if (vec[1] == String("starter")) {trigger_source=SS_TRIG_STARTER; return true;};
+		if (vec[1] == String("turbo_BOV")) { trigger_source = SS_TRIG_TURBOBOV; return true; };
+		if (vec[1] == String("turbo_waste_gate")) { trigger_source = SS_TRIG_TURBOWASTEGATE; return true; };
+		if (vec[1] == String("turbo_back_fire")) { trigger_source = SS_TRIG_TURBOBACKFIRE; return true; };
 		if (vec[1] == String("always_on")) {trigger_source=SS_TRIG_ALWAYSON; return true;};
 		if (vec[1] == String("repair")) {trigger_source=SS_TRIG_REPAIR; return true;};
 		if (vec[1] == String("air")) {trigger_source=SS_TRIG_AIR; return true;};
@@ -551,6 +581,7 @@ bool SoundScriptTemplate::setParameter(Ogre::StringVector vec)
 		if (vec[1] == String("turn_signal_tick")) {trigger_source=SS_TRIG_TURN_SIGNAL_TICK; return true;};
 		if (vec[1] == String("turn_signal_warn_tick")) {trigger_source=SS_TRIG_TURN_SIGNAL_WARN_TICK; return true;};
 		if (vec[1] == String("linked_command")) {trigger_source=SS_TRIG_LINKED_COMMAND; return true;};
+		if (vec[1] == String("main_menu")) { trigger_source = SS_TRIG_MAIN_MENU; return true; };
 
 		return false;
 	}
@@ -678,6 +709,7 @@ int SoundScriptTemplate::parseModulation(String str)
 	if (str == String("air_speed_knots"))        return SS_MOD_AIRSPEED;
 	if (str == String("angle_of_attack_degree")) return SS_MOD_AOA;
 	if (str == String("linked_command_rate"))    return SS_MOD_LINKED_COMMANDRATE;
+	if (str == String("music_volume"))			 return SS_MOD_MUSIC_VOLUME;
 
 	return -1;
 }
@@ -955,6 +987,7 @@ void SoundScriptInstance::start()
 	if (start_sound)
 	{
 		start_sound->stop();
+		//start_sound->setLoop(true);
 		start_sound->play();
 	}
 
@@ -974,6 +1007,23 @@ void SoundScriptInstance::stop()
 	{
 		if (sounds[i]) sounds[i]->stop();
 	}
+
+	if (stop_sound)
+	{
+		stop_sound->stop();
+		stop_sound->play();
+	}
+}
+
+void SoundScriptInstance::kill()
+{
+	for (int i = 0; i<templ->free_sound; i++)
+	{
+		if (sounds[i]) sounds[i]->stop();
+	}
+
+	if (start_sound)
+		start_sound->stop();
 
 	if (stop_sound)
 	{

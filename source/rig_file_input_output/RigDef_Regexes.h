@@ -81,10 +81,17 @@ namespace Regexes
 
 #define E_REAL_NUMBER_WITH_EXPONENT "-?[[:digit:]]*\\.[[:digit:]]+[eE][-+]?[[:digit:]]+"
 
-#define E_REAL_NUMBER_SIMPLE "-?[[:digit:]]*\\.[[:digit:]]+"
+#define E_REAL_NUMBER_WITH_EXPONENT_NO_FRACTION "-?[[:digit:]]*[eE][-+]?[[:digit:]]+"
 
+// NOTE: Intentionally accepting format "1." for backwards compatibility, observed in http://www.rigsofrods.com/repository/view/2389
+#define E_REAL_NUMBER_SIMPLE "-?[[:digit:]]*\\.[[:digit:]]*"
+
+//NOTE: Uses |, MUST be enclosed in E_CAPTURE()
 #define E_REAL_NUMBER \
-	E_REAL_NUMBER_WITH_EXPONENT E_OR E_REAL_NUMBER_SIMPLE E_OR E_DECIMAL_NUMBER /* Uses |, MUST be enclosed in E_CAPTURE() */
+	E_REAL_NUMBER_WITH_EXPONENT             E_OR \
+	E_REAL_NUMBER_WITH_EXPONENT_NO_FRACTION E_OR \
+	E_REAL_NUMBER_SIMPLE                    E_OR \
+	E_DECIMAL_NUMBER 
 
 #define E_MINUS_ONE_REAL "-1\\.[0]*|-1"   /* Uses |, MUST be enclosed in E_CAPTURE() */
 
@@ -100,7 +107,7 @@ namespace Regexes
 
 #define E_STRING_ANYTHING_BUT_DELIMITER "[^[:blank:],]+"
 
-#define E_STRING_ALNUM_COMMAS_USCORES_ONLY "[[:alnum:]_-]+"
+#define E_STRING_ALNUM_HYPHENS_USCORES_ONLY "[[:alnum:]_-]+"
 
 #define E_OPTIONAL_SPACE "[[:blank:]]*"
 
@@ -124,11 +131,11 @@ namespace Regexes
 
 #define E_BOOLEAN "true|yes|1|false|no|0" /* Uses |, MUST be enclosed in E_CAPTURE() */
 
-#define E_NODE_ID E_STRING_ALNUM_COMMAS_USCORES_ONLY
+#define E_NODE_ID E_STRING_ALNUM_HYPHENS_USCORES_ONLY
 
 #define E_NODE_ID_OPTIONAL E_NODE_ID E_OR E_MINUS_ONE_REAL
 
-#define E_INERTIA_FUNCTION E_STRING_ALNUM_COMMAS_USCORES_ONLY
+#define E_INERTIA_FUNCTION E_STRING_ALNUM_HYPHENS_USCORES_ONLY
 
 /* -------------------------------------------------------------------------- */
 /* Macros                                                                     */
@@ -179,127 +186,131 @@ namespace Regexes
 /* -------------------------------------------------------------------------- */
 
 /* IMPORTANT! If you add a value here, you must also modify File::Keywords enum, it relies on positions in this regex */
-DEFINE_REGEX( IDENTIFY_KEYWORD,
-	// E_KEYWORD_BLOCK("advdrag") /* Not supported yet */
+#define IDENTIFY_KEYWORD_REGEX_STRING                             \
+    /* E_KEYWORD_BLOCK("advdrag") ~~ Not supported yet */         \
+    E_KEYWORD_INLINE_TOLERANT("add_animation")  /* Position 1 */  \
+    E_KEYWORD_BLOCK("airbrakes")       /* Position 2 */           \
+    E_KEYWORD_BLOCK("animators")       /* Position 3 etc... */    \
+    E_KEYWORD_INLINE("AntiLockBrakes")                            \
+    E_KEYWORD_BLOCK("axles")                                      \
+    E_KEYWORD_INLINE("author")                                    \
+    E_KEYWORD_BLOCK("backmesh")                                   \
+    E_KEYWORD_BLOCK("beams")                                      \
+    E_KEYWORD_BLOCK("brakes")                                     \
+    E_KEYWORD_BLOCK("cab")                                        \
+    E_KEYWORD_BLOCK("camerarail")                                 \
+    E_KEYWORD_BLOCK("cameras")                                    \
+    E_KEYWORD_BLOCK("cinecam")                                    \
+    E_KEYWORD_BLOCK("collisionboxes")                             \
+    E_KEYWORD_BLOCK("commands")                                   \
+    E_KEYWORD_BLOCK("commands2")                                  \
+    E_KEYWORD_BLOCK("contacters")                                 \
+    E_KEYWORD_INLINE("cruisecontrol")                             \
+    E_KEYWORD_BLOCK("description")                                \
+    E_KEYWORD_INLINE("detacher_group")                            \
+    E_KEYWORD_BLOCK("disabledefaultsounds")                       \
+    E_KEYWORD_BLOCK("enable_advanced_deformation")                \
+    E_KEYWORD_BLOCK("end")                                        \
+    E_KEYWORD_BLOCK("end_section")                                \
+    E_KEYWORD_BLOCK("engine")                                     \
+    E_KEYWORD_BLOCK("engoption")                                  \
+	E_KEYWORD_BLOCK("engturbo")									  \
+    E_KEYWORD_BLOCK("envmap")                                     \
+    E_KEYWORD_BLOCK("exhausts")                                   \
+    E_KEYWORD_INLINE("extcamera")                                 \
+    E_KEYWORD_INLINE("fileformatversion")                         \
+    E_KEYWORD_INLINE("fileinfo")                                  \
+    E_KEYWORD_BLOCK("fixes")                                      \
+    E_KEYWORD_BLOCK("flares")                                     \
+    E_KEYWORD_BLOCK("flares2")                                    \
+    E_KEYWORD_BLOCK("flexbodies")                                 \
+    E_KEYWORD_INLINE("flexbody_camera_mode")                      \
+    E_KEYWORD_BLOCK("flexbodywheels")                             \
+    E_KEYWORD_BLOCK("forwardcommands")                            \
+    E_KEYWORD_BLOCK("fusedrag")                                   \
+    E_KEYWORD_BLOCK("globals")                                    \
+    E_KEYWORD_INLINE("guid")                                      \
+    E_KEYWORD_BLOCK("guisettings")                                \
+    E_KEYWORD_BLOCK("help")                                       \
+    E_KEYWORD_BLOCK("hideInChooser")                              \
+    E_KEYWORD_BLOCK("hookgroup")                                  \
+    E_KEYWORD_BLOCK("hooks")                                      \
+    E_KEYWORD_BLOCK("hydros")                                     \
+    E_KEYWORD_BLOCK("importcommands")                             \
+    E_KEYWORD_BLOCK("lockgroups")                                 \
+    E_KEYWORD_BLOCK("lockgroup_default_nolock")                   \
+    E_KEYWORD_BLOCK("managedmaterials")                           \
+    E_KEYWORD_BLOCK("materialflarebindings")                      \
+    E_KEYWORD_BLOCK("meshwheels")                                 \
+    E_KEYWORD_BLOCK("meshwheels2")                                \
+    E_KEYWORD_BLOCK("minimass")                                   \
+    E_KEYWORD_BLOCK("nodecollision")                              \
+    E_KEYWORD_BLOCK("nodes")                                      \
+    E_KEYWORD_BLOCK("nodes2")                                     \
+    E_KEYWORD_BLOCK("particles")                                  \
+    E_KEYWORD_BLOCK("pistonprops")                                \
+    E_KEYWORD_INLINE("prop_camera_mode")                          \
+    E_KEYWORD_BLOCK("props")                                      \
+    E_KEYWORD_BLOCK("railgroups")                                 \
+    E_KEYWORD_BLOCK("rescuer")                                    \
+    E_KEYWORD_BLOCK("rigidifiers")                                \
+    E_KEYWORD_BLOCK("rollon")                                     \
+    E_KEYWORD_BLOCK("ropables")                                   \
+    E_KEYWORD_BLOCK("ropes")                                      \
+    E_KEYWORD_BLOCK("rotators")                                   \
+    E_KEYWORD_BLOCK("rotators2")                                  \
+    E_KEYWORD_BLOCK("screwprops")                                 \
+    E_KEYWORD_INLINE("section")                                   \
+    E_KEYWORD_INLINE("sectionconfig")                             \
+    E_KEYWORD_INLINE("set_beam_defaults")                         \
+    E_KEYWORD_INLINE("set_beam_defaults_scale")                   \
+    E_KEYWORD_INLINE("set_collision_range")                       \
+    E_KEYWORD_INLINE("set_inertia_defaults")                      \
+    E_KEYWORD_INLINE("set_managedmaterials_options")              \
+    E_KEYWORD_INLINE("set_node_defaults")                         \
+    E_KEYWORD_BLOCK("set_shadows")                                \
+    E_KEYWORD_INLINE("set_skeleton_settings")                     \
+    E_KEYWORD_BLOCK("shocks")                                     \
+    E_KEYWORD_BLOCK("shocks2")                                    \
+    E_KEYWORD_BLOCK("slidenode_connect_instantly")                \
+    E_KEYWORD_BLOCK("slidenodes")                                 \
+    E_KEYWORD_INLINE("SlopeBrake")                                \
+    E_KEYWORD_BLOCK("soundsources")                               \
+    E_KEYWORD_BLOCK("soundsources2")                              \
+    E_KEYWORD_INLINE("speedlimiter")                              \
+    /* E_KEYWORD_BLOCK("soundsources3") ~~ Not supported yet */   \
+    E_KEYWORD_BLOCK("submesh")                                    \
+    E_KEYWORD_INLINE("submesh_groundmodel")                       \
+    E_KEYWORD_BLOCK("texcoords")                                  \
+    E_KEYWORD_BLOCK("ties")                                       \
+    E_KEYWORD_BLOCK("torquecurve")                                \
+    E_KEYWORD_INLINE("TractionControl")                           \
+    E_KEYWORD_BLOCK("triggers")                                   \
+    E_KEYWORD_BLOCK("turbojets")                                  \
+    E_KEYWORD_BLOCK("turboprops")                                 \
+    E_KEYWORD_BLOCK("turboprops2")                                \
+    E_KEYWORD_BLOCK("videocamera")                                \
+    E_KEYWORD_BLOCK("wheels")                                     \
+    E_KEYWORD_BLOCK("wheels2")                                    \
+    E_KEYWORD_BLOCK("wings")
 
-	E_KEYWORD_INLINE_TOLERANT("add_animation")  /* Position 1 */
-	E_KEYWORD_BLOCK("airbrakes")       /* Position 2 */
-	E_KEYWORD_BLOCK("animators")       /* Position 3 etc... */
-	E_KEYWORD_INLINE("AntiLockBrakes")
-	E_KEYWORD_BLOCK("axles")
-	E_KEYWORD_INLINE("author")
-	E_KEYWORD_BLOCK("backmesh")
-	E_KEYWORD_BLOCK("beams")
-	E_KEYWORD_BLOCK("brakes")
-	E_KEYWORD_BLOCK("cab")
-	E_KEYWORD_BLOCK("camerarail")
-	E_KEYWORD_BLOCK("cameras")
-	E_KEYWORD_BLOCK("cinecam")
-	E_KEYWORD_BLOCK("collisionboxes")
-	E_KEYWORD_BLOCK("commands")
-	E_KEYWORD_BLOCK("commands2")
-	E_KEYWORD_BLOCK("contacters")
-	E_KEYWORD_INLINE("cruisecontrol")
-	E_KEYWORD_BLOCK("description")
-	E_KEYWORD_INLINE("detacher_group")
-	E_KEYWORD_BLOCK("disabledefaultsounds")
-	E_KEYWORD_BLOCK("enable_advanced_deformation")
-	E_KEYWORD_BLOCK("end")
-	E_KEYWORD_BLOCK("end_section")
-	E_KEYWORD_BLOCK("engine")
-	E_KEYWORD_BLOCK("engoption")
-	E_KEYWORD_BLOCK("envmap")
-	E_KEYWORD_BLOCK("exhausts")
-	E_KEYWORD_INLINE("extcamera")
-	E_KEYWORD_INLINE("fileformatversion")
-	E_KEYWORD_INLINE("fileinfo")
-	E_KEYWORD_BLOCK("fixes")
-	E_KEYWORD_BLOCK("flares")
-	E_KEYWORD_BLOCK("flares2")
-	E_KEYWORD_BLOCK("flexbodies")
-	E_KEYWORD_INLINE("flexbody_camera_mode")
-	E_KEYWORD_BLOCK("flexbodywheels")
-	E_KEYWORD_BLOCK("forwardcommands")
-	E_KEYWORD_BLOCK("fusedrag")
-	E_KEYWORD_BLOCK("globals")
-	E_KEYWORD_INLINE("guid")
-	E_KEYWORD_BLOCK("guisettings")
-	E_KEYWORD_BLOCK("help")
-	E_KEYWORD_BLOCK("hideInChooser")
-	E_KEYWORD_BLOCK("hookgroup")
-	E_KEYWORD_BLOCK("hooks")
-	E_KEYWORD_BLOCK("hydros")
-	E_KEYWORD_BLOCK("importcommands")
-	E_KEYWORD_BLOCK("lockgroups")
-	E_KEYWORD_BLOCK("lockgroup_default_nolock")
-	E_KEYWORD_BLOCK("managedmaterials")
-	E_KEYWORD_BLOCK("materialflarebindings")
-	E_KEYWORD_BLOCK("meshwheels")
-	E_KEYWORD_BLOCK("meshwheels2")
-	E_KEYWORD_BLOCK("minimass")
-	E_KEYWORD_BLOCK("nodecollision")
-	E_KEYWORD_BLOCK("nodes")
-	E_KEYWORD_BLOCK("nodes2")
-	E_KEYWORD_BLOCK("particles")
-	E_KEYWORD_BLOCK("pistonprops")
-	E_KEYWORD_INLINE("prop_camera_mode")
-	E_KEYWORD_BLOCK("props")
-	E_KEYWORD_BLOCK("railgroups")
-	E_KEYWORD_BLOCK("rescuer")
-	E_KEYWORD_BLOCK("rigidifiers")
-	E_KEYWORD_BLOCK("rollon")
-	E_KEYWORD_BLOCK("ropables")
-	E_KEYWORD_BLOCK("ropes")
-	E_KEYWORD_BLOCK("rotators")
-	E_KEYWORD_BLOCK("rotators2")
-	E_KEYWORD_BLOCK("screwprops")
-	E_KEYWORD_INLINE("section")
-	E_KEYWORD_INLINE("sectionconfig")
-	E_KEYWORD_INLINE("set_beam_defaults")
-	E_KEYWORD_INLINE("set_beam_defaults_scale")
-	E_KEYWORD_INLINE("set_collision_range")
-	E_KEYWORD_INLINE("set_inertia_defaults")
-	E_KEYWORD_INLINE("set_managedmaterials_options")
-	E_KEYWORD_INLINE("set_node_defaults")
-	E_KEYWORD_BLOCK("set_shadows")
-	E_KEYWORD_INLINE("set_skeleton_settings")
-	E_KEYWORD_BLOCK("shocks")
-	E_KEYWORD_BLOCK("shocks2")
-	E_KEYWORD_BLOCK("slidenode_connect_instantly")
-	E_KEYWORD_BLOCK("slidenodes")
-	E_KEYWORD_INLINE("SlopeBrake")
-	E_KEYWORD_BLOCK("soundsources")
-	E_KEYWORD_BLOCK("soundsources2")
-	E_KEYWORD_INLINE("speedlimiter")
-	//E_KEYWORD_BLOCK("soundsources3") // Not supported yet
-	E_KEYWORD_BLOCK("submesh")
-	E_KEYWORD_INLINE("submesh_groundmodel")
-	E_KEYWORD_BLOCK("texcoords")
-	E_KEYWORD_BLOCK("ties")
-	E_KEYWORD_BLOCK("torquecurve")
-	E_KEYWORD_INLINE("TractionControl")
-	E_KEYWORD_BLOCK("triggers")
-	E_KEYWORD_BLOCK("turbojets")
-	E_KEYWORD_BLOCK("turboprops")
-	E_KEYWORD_BLOCK("turboprops2")
-	E_KEYWORD_BLOCK("videocamera")
-	E_KEYWORD_BLOCK("wheels")
-	E_KEYWORD_BLOCK("wheels2")
-	E_KEYWORD_BLOCK("wings")
-	);
+DEFINE_REGEX(            IDENTIFY_KEYWORD_RESPECT_CASE, IDENTIFY_KEYWORD_REGEX_STRING )
+DEFINE_REGEX_IGNORECASE( IDENTIFY_KEYWORD_IGNORE_CASE,  IDENTIFY_KEYWORD_REGEX_STRING )
 
-DEFINE_REGEX( CHECK_BLOCK_COMMENT_END, 
-	"^end_comment"
+DEFINE_REGEX( CHECK_BLOCK_COMMENT_END,
+    E_LEADING_WHITESPACE
+    "[Ee][Nn][Dd]_[Cc][Oo][Mm][Mm][Ee][Nn][Tt]"
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( CHECK_END_DESCRIPTION, 
-	"^end_description"
+    E_LEADING_WHITESPACE
+    "[Ee][Nn][Dd]_[Dd][Ee][Ss][Cc][Rr][Ii][Pp][Tt][Ii][Oo][Nn]"
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( IDENTIFY_LINE_TYPE,
-	E_CAPTURE_OPTIONAL( "^comment" E_TRAILING_WHITESPACE ) /* Block comment start */
+	E_CAPTURE_OPTIONAL( "^[Cc][Oo][Mm][Mm][Ee][Nn][Tt]" E_TRAILING_WHITESPACE ) /* Block comment start */
 	E_CAPTURE_OPTIONAL( "^[[:blank:]]*;.*$" )              /* Single line comment */
 	E_CAPTURE_OPTIONAL( "^[[:blank:]]*" E_SLASH ".*$" )    /* Single line comment (legacy format) */
 	E_CAPTURE_OPTIONAL( "^[[:blank:]]*$"  )                /* Blank line */
@@ -315,14 +326,6 @@ DEFINE_REGEX( MINUS_ONE_REAL, E_MINUS_ONE_REAL );
 
 DEFINE_REGEX( REAL_NUMBER, E_REAL_NUMBER );
 
-DEFINE_REGEX( NODE_NUMBER, 
-	E_LEADING_WHITESPACE
-	E_DECIMAL_NUMBER
-	E_TRAILING_WHITESPACE
-	);
-
-DEFINE_REGEX( NODE_NAME, E_STRING_ALNUM_COMMAS_USCORES_ONLY );
-
 DEFINE_REGEX( NODE_LIST,
 	E_LEADING_WHITESPACE
 	E_CAPTURE( E_NODE_ID )
@@ -333,7 +336,7 @@ DEFINE_REGEX( NODE_ID_OPTIONAL,
 	E_LEADING_WHITESPACE
 	E_CAPTURE_OPTIONAL( E_POSITIVE_DECIMAL_NUMBER ) /* Numeric Id */
 	E_CAPTURE_OPTIONAL( E_MINUS_ONE_REAL ) /* -1 = use default */
-	E_CAPTURE_OPTIONAL( E_STRING_ALNUM_COMMAS_USCORES_ONLY ) /* String Id */
+	E_CAPTURE_OPTIONAL( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) /* String Id */
 	E_CAPTURE_OPTIONAL( E_TRAILING_WHITESPACE )
 	);
 
@@ -354,7 +357,8 @@ DEFINE_REGEX( NODE_ID_OPTIONAL,
 /* -------------------------------------------------------------------------- */
 
 DEFINE_REGEX( DIRECTIVE_ADD_ANIMATION,
-	"^add_animation"
+    E_LEADING_WHITESPACE
+    "[aA][dD][dD]_[aA][nN][iI][mM][aA][tT][iI][oO][nN]"
 	E_CAPTURE( 
 		E_CAPTURE( E_DELIMITER_SPACE )
 		E_OR 
@@ -530,7 +534,8 @@ DEFINE_REGEX( IDENTIFY_ADD_ANIMATION_SOURCE,
 	);
 
 DEFINE_REGEX( DIRECTIVE_DETACHER_GROUP,
-	"^detacher_group"
+    E_LEADING_WHITESPACE
+    "[Dd][Ee][Tt][Aa][Cc][Hh][Ee][Rr]_[Gg][Rr][Oo][Uu][Pp]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( /* #1 Wrapper */
 		E_CAPTURE( E_DECIMAL_NUMBER ) /* #2 Detacher group ID */
@@ -541,21 +546,24 @@ DEFINE_REGEX( DIRECTIVE_DETACHER_GROUP,
 	);
 
 DEFINE_REGEX( DIRECTIVE_FLEXBODY_CAMERA_MODE,
-	"^flexbody_camera_mode"
+    E_LEADING_WHITESPACE
+    "[Ff][Ll][Ee][Xx][Bb][Oo][Dd][Yy]_[Cc][Aa][Mm][Ee][Rr][Aa]_[Mm][Oo][Dd][Ee]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_DECIMAL_NUMBER ) /* #1 Mode/cinecam index */
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( DIRECTIVE_PROP_CAMERA_MODE,
-	"^prop_camera_mode"
+    E_LEADING_WHITESPACE
+	"[Pp][Rr][Oo][Pp]_[Cc][Aa][Mm][Ee][Rr][Aa]_[Mm][Oo][Dd][Ee]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_DECIMAL_NUMBER ) /* #1 Mode/cinecam index */
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( DIRECTIVE_SECTION,
-	"^section"
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Cc][Tt][Ii][Oo][Nn]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* #1 Unused (version) */
 	E_DELIMITER_SPACE
@@ -564,7 +572,8 @@ DEFINE_REGEX( DIRECTIVE_SECTION,
 	);
 
 DEFINE_REGEX( DIRECTIVE_SET_BEAM_DEFAULTS, 
-	"^set_beam_defaults" 
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Bb][Ee][Aa][Mm]_[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Ss]" 
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* #1 Spring */
 	E_CAPTURE_OPTIONAL(
@@ -599,7 +608,8 @@ DEFINE_REGEX( DIRECTIVE_SET_BEAM_DEFAULTS,
 	);
 
 DEFINE_REGEX( DIRECTIVE_SET_BEAM_DEFAULTS_SCALE, 
-	"^set_beam_defaults_scale" 
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Bb][Ee][Aa][Mm]_[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Ss]_[Ss][Cc][Aa][Ll][Ee]" 
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* #1 Spring scale */
 	E_CAPTURE_OPTIONAL(
@@ -619,7 +629,8 @@ DEFINE_REGEX( DIRECTIVE_SET_BEAM_DEFAULTS_SCALE,
 	);
 
 DEFINE_REGEX( DIRECTIVE_SET_INERTIA_DEFAULTS, 
-	"^set_inertia_defaults"
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Ii][Nn][Ee][Rr][Tt][Ii][Aa]_[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Ss]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* #1 Start delay OR -1 */
 	E_CAPTURE_OPTIONAL( 
@@ -641,31 +652,33 @@ DEFINE_REGEX( DIRECTIVE_SET_INERTIA_DEFAULTS,
 	);
 
 DEFINE_REGEX( DIRECTIVE_SET_MANAGEDMATERIALS_OPTIONS, 
-	"^set_managedmaterials_options" 
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Mm][Aa][Nn][Aa][Gg][Ee][Dd][Mm][Aa][Tt][Ee][Rr][Ii][Aa][Ll][Ss]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]" 
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_STRING_ANYTHING_BUT_WHITESPACE ) /* Double-sided (for backwards compatibility, accept anything) */
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( DIRECTIVE_SET_NODE_DEFAULTS, 
-	"^set_node_defaults" 
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Nn][Oo][Dd][Ee]_[Dd][Ee][Ff][Aa][Uu][Ll][Tt][Ss]" 
 	E_DELIMITER_SPACE
-	E_CAPTURE( E_REAL_NUMBER ) /* Load weight */
+	E_CAPTURE( E_REAL_NUMBER )                                   // #1 Load weight
 	E_CAPTURE_OPTIONAL(
-		E_DELIMITER_COMMA
-		E_CAPTURE( E_REAL_NUMBER ) /* #3 Friction */
+		E_CAPTURE( E_DELIMITER )
+		E_CAPTURE( E_REAL_NUMBER )                               // #4 Friction
 
 		E_CAPTURE_OPTIONAL(
-			E_DELIMITER_COMMA
-			E_CAPTURE( E_REAL_NUMBER ) /* #5 Volume */
+			E_CAPTURE( E_DELIMITER )
+			E_CAPTURE( E_REAL_NUMBER )                           // #7 Volume
 
 			E_CAPTURE_OPTIONAL(
-				E_DELIMITER_COMMA
-				E_CAPTURE( E_REAL_NUMBER ) /* #7 Surface */
+				E_CAPTURE( E_DELIMITER )
+				E_CAPTURE( E_REAL_NUMBER )                       // #10 Surface
 
 				E_CAPTURE_OPTIONAL(
-					E_DELIMITER_COMMA
-					E_CAPTURE( "[lnmfxychebpL]*" ) /* #9 Options */
+					E_CAPTURE( E_DELIMITER )
+					E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #13 Options
 				)
 			)
 		)
@@ -737,7 +750,7 @@ DEFINE_REGEX( PARSE_ANIMATORS_KEY_COLON_VALUE,
 
 DEFINE_REGEX( INLINE_SECTION_ANTI_LOCK_BRAKES, 
 	E_LEADING_WHITESPACE
-	"AntiLockBrakes"
+	"[Aa][Nn][Tt][Ii][Ll][Oo][Cc][Kk][Bb][Rr][Aa][Kk][Ee][Ss]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* Regulating force */
 	E_DELIMITER_COMMA
@@ -824,20 +837,25 @@ DEFINE_REGEX( SECTION_AXLES_PROPERTY,
 
 DEFINE_REGEX( SECTION_BEAMS,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_NODE_ID ) /* #1 Node 1 */
-	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_NODE_ID ) /* #3 Node 2 */
+	E_CAPTURE( E_NODE_ID )                     // #1 Node 1
+	E_CAPTURE( E_DELIMITER )                   
+	E_CAPTURE( E_NODE_ID )                     // #3 Node 2
 
-	E_CAPTURE_OPTIONAL( 
-		E_CAPTURE( E_DELIMITER )
-		E_CAPTURE( E_STRING_ALNUM_COMMAS_USCORES_ONLY ) /* #6 Options */
+	E_CAPTURE_OPTIONAL(       
+		E_CAPTURE( E_DELIMITER )               // #5 Delimiter (possibly dangling)
 
 		E_CAPTURE_OPTIONAL( 
-			E_CAPTURE( E_DELIMITER )
-			E_CAPTURE( E_REAL_NUMBER ) /* #9 User-defined extension break limit */
+			E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) // #7 Options
+
+			E_CAPTURE_OPTIONAL( 
+				E_CAPTURE( E_DELIMITER )       // #9 Delimiter (possibly dangling)
+
+				E_CAPTURE_OPTIONAL( 
+					E_CAPTURE( E_REAL_NUMBER ) // #11 User-defined extension break limit
+				)
+			)
 		)
 	)
-	E_CAPTURE_OPTIONAL( E_ILLEGAL_TRAILING_STRING ) /* #10 */
 	E_TRAILING_WHITESPACE
 	);
 
@@ -956,10 +974,10 @@ DEFINE_REGEX( SECTION_COMMANDS,
 	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )  // #13 Expand key
 	E_CAPTURE_OPTIONAL(                     // #14
 		E_CAPTURE( E_DELIMITER )
-		E_CAPTURE( "i|r|n" )                // #16 Options
+		E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) // #16 Options
 		E_CAPTURE_OPTIONAL(                 // #17
 			E_CAPTURE( E_DELIMITER )
-			E_CAPTURE( E_STRING_ANYTHING_BUT_WHITESPACE ) // #19 Description ----
+			E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) // #19 Description
 			E_CAPTURE_OPTIONAL(
 				E_CAPTURE( E_DELIMITER )
 				E_SECTIONS_COMMANDS_COMMANDS2_INERTIA_AFFECT_ENGINE_PART // Result index += ( 3[outside] + 1[inside] )
@@ -990,7 +1008,7 @@ DEFINE_REGEX( SECTION_COMMANDS_2,
 	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )    // #15 Expand key
 	E_CAPTURE_OPTIONAL(                       // #16
 		E_CAPTURE( E_DELIMITER ) 
-		E_CAPTURE( "[nircfpo]*" )             // #18 Options
+		E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) // #18 Options
 		E_CAPTURE_OPTIONAL(                   // #19
 			E_CAPTURE( E_DELIMITER )          // #20
 			E_CAPTURE( E_STRING_NO_SPACES )   // #21 Description
@@ -1003,7 +1021,8 @@ DEFINE_REGEX( SECTION_COMMANDS_2,
 	);
 
 DEFINE_REGEX( INLINE_SECTION_CRUISECONTROL,
-	"^cruisecontrol"
+    E_LEADING_WHITESPACE
+	"[Cc][Rr][Uu][Ii][Ss][Ee][Cc][Oo][Nn][Tt][Rr][Oo][Ll]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* Min speed */
 	E_DELIMITER_COMMA
@@ -1081,7 +1100,37 @@ DEFINE_REGEX( SECTION_ENGINE,
 														E_CAPTURE_OPTIONAL( 
 															E_CAPTURE( E_DELIMITER )
 															E_CAPTURE( E_REAL_NUMBER ) /* #55 15th gear, max */
-														)
+														
+															E_CAPTURE_OPTIONAL(
+																E_CAPTURE(E_DELIMITER)
+																E_CAPTURE(E_REAL_NUMBER) /* #55 16th gear, max */
+														
+																E_CAPTURE_OPTIONAL(
+																	E_CAPTURE(E_DELIMITER)
+																	E_CAPTURE(E_REAL_NUMBER) /* #55 17th gear, max */
+														
+																	E_CAPTURE_OPTIONAL(
+																		E_CAPTURE(E_DELIMITER)
+																		E_CAPTURE(E_REAL_NUMBER) /* #55 18th gear, max */
+														
+																		E_CAPTURE_OPTIONAL(
+																			E_CAPTURE(E_DELIMITER)
+																			E_CAPTURE(E_REAL_NUMBER) /* #55 19th gear, max */
+														
+																			E_CAPTURE_OPTIONAL(
+																				E_CAPTURE(E_DELIMITER)
+																				E_CAPTURE(E_REAL_NUMBER) /* #55 20th gear, max */
+																			
+																				E_CAPTURE_OPTIONAL(
+																					E_CAPTURE(E_DELIMITER)
+																					E_CAPTURE(E_REAL_NUMBER) /* #55 21st gear, max */
+																				)
+																			)
+																		)
+																	)
+																)
+															)
+														)					
 													)
 												)
 											)
@@ -1154,6 +1203,58 @@ DEFINE_REGEX( SECTION_ENGOPTION,
 	E_TRAILING_WHITESPACE
 	);
 
+DEFINE_REGEX(SECTION_ENGTURBO,
+	E_LEADING_WHITESPACE
+	E_CAPTURE(E_REAL_NUMBER) /* #1 Version */
+	E_DELIMITER_COMMA
+	E_CAPTURE(E_REAL_NUMBER) /* #1 Inertia */
+	E_DELIMITER_COMMA
+	E_CAPTURE(E_REAL_NUMBER) /* #1 Number of turbos */
+	E_DELIMITER_COMMA
+	E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM1 */
+	E_CAPTURE_OPTIONAL(
+		E_DELIMITER_COMMA
+		E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM2 */
+		E_CAPTURE_OPTIONAL(
+			E_DELIMITER_COMMA
+			E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM3 */
+			E_CAPTURE_OPTIONAL(
+				E_DELIMITER_COMMA
+				E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM4 */
+				E_CAPTURE_OPTIONAL(
+					E_DELIMITER_COMMA
+					E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 5 */
+					E_CAPTURE_OPTIONAL(
+						E_DELIMITER_COMMA
+						E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 6 */
+						E_CAPTURE_OPTIONAL(
+							E_DELIMITER_COMMA
+							E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 7 */
+							E_CAPTURE_OPTIONAL(
+								E_DELIMITER_COMMA
+								E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 8 */
+								E_CAPTURE_OPTIONAL(
+									E_DELIMITER_COMMA
+									E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 9 */
+									E_CAPTURE_OPTIONAL(
+										E_DELIMITER_COMMA
+										E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 10 */
+										E_CAPTURE_OPTIONAL(
+											E_DELIMITER_COMMA
+											E_CAPTURE(E_REAL_NUMBER) /* #1 PARAM 11 */
+										)
+									)
+								)
+							)
+						)
+					)
+				)
+			)
+		)
+	)
+	E_TRAILING_WHITESPACE
+	);
+
 DEFINE_REGEX( SECTION_EXHAUSTS,
 	E_LEADING_WHITESPACE
 	E_CAPTURE( E_NODE_ID )   /* Reference node */
@@ -1172,7 +1273,8 @@ DEFINE_REGEX( SECTION_EXHAUSTS,
 	);
 
 DEFINE_REGEX( INLINE_SECTION_EXTCAMERA,
-	"^extcamera"
+    E_LEADING_WHITESPACE
+	"[Ee][Xx][Tt][Cc][Aa][Mm][Ee][Rr][Aa]"
 	E_CAPTURE( /* #1 Wrap */
 		E_CAPTURE( /* #2 */
 			E_DELIMITER_SPACE 
@@ -1197,20 +1299,22 @@ DEFINE_REGEX( INLINE_SECTION_EXTCAMERA,
 	E_TRAILING_WHITESPACE
 	);
 
-DEFINE_REGEX( INLINE_SECTION_FILE_FORMAT_VERSION, 
-	"^fileformatversion"
+DEFINE_REGEX( INLINE_SECTION_FILE_FORMAT_VERSION,
+    E_LEADING_WHITESPACE
+    "[Ff][Ii][Ll][Ee][Ff][Oo][Rr][Mm][Aa][Tt][Vv][Ee][Rr][Ss][Ii][Oo][Nn]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* #1 The version */
 	E_TRAILING_WHITESPACE
 	);
 
-DEFINE_REGEX( INLINE_SECTION_FILEINFO, 
-	"^fileinfo"
+DEFINE_REGEX( INLINE_SECTION_FILEINFO,
+    E_LEADING_WHITESPACE
+    "[Ff][Ii][Ll][Ee][Ii][Nn][Ff][Oo]"
 	E_DELIMITER_SPACE
 	E_CAPTURE(
 		E_CAPTURE( E_MINUS_ONE_REAL )   /* #2 No UID */
 		E_OR
-		E_CAPTURE( E_STRING_NO_SPACES ) /* #3 UID */ 
+		E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) /* #3 UID */ 
 	)
 	E_CAPTURE_OPTIONAL( /* #4 Wrapper */
 		E_DELIMITER_COMMA
@@ -1241,13 +1345,13 @@ DEFINE_REGEX( SECTION_FLARES,
 		E_OR 
 		E_CAPTURE( E_DELIMITER_COMMA )
 	)
-	E_CAPTURE( E_REAL_NUMBER )  /* #5 X */
+	E_CAPTURE( E_NODE_ID )      /* #5 X axis node */
 	E_CAPTURE( 
 		E_CAPTURE( E_DELIMITER_SPACE )
 		E_OR 
 		E_CAPTURE( E_DELIMITER_COMMA )
 	)
-	E_CAPTURE( E_REAL_NUMBER )  /* #9 Y */
+	E_CAPTURE( E_NODE_ID )      /* #9 Y axis node */
 	E_CAPTURE( 
 		E_CAPTURE( E_DELIMITER_SPACE )
 		E_OR 
@@ -1313,9 +1417,9 @@ DEFINE_REGEX( SECTION_FLARES2,
 	E_LEADING_WHITESPACE
 	E_CAPTURE( E_NODE_ID )      /* Reference node */
 	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER )  /* X */
+	E_CAPTURE( E_NODE_ID )      /* X axis node */
 	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER )  /* Y */
+	E_CAPTURE( E_NODE_ID )      /* Y axis node */
 	E_DELIMITER_COMMA
 	E_CAPTURE( E_REAL_NUMBER )  /* #4 X offset */
 	E_DELIMITER_COMMA
@@ -1351,30 +1455,30 @@ DEFINE_REGEX( SECTION_FLARES2,
 
 DEFINE_REGEX( FLEXBODIES_SUBSECTION_PROPLIKE_LINE,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_NODE_ID ) /* Node */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* X */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Y */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* X offset */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Y offset */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Z offset */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* X rotation */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Y rotation */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Z rotation */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_STRING_NO_SPACES ) /* Mesh name */
+	E_CAPTURE( E_NODE_ID )          // #1 Reference node
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )          // #3 X node
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )          // #5 Y node
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )      // #7 X offset 
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )      // #9 Y offset 
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )      // #11 Z offset 
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )      // #13 X rotation 
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )      // #15 Y rotation 
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )      // #17 Z rotation 
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_STRING_NO_SPACES ) // #19 Mesh name 
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( FLEXBODIES_SUBSECTION_FORSET_LINE,
-	"^forset"
+	"^forset[:]?" // Tolerate invalid ":" after keyword, observed i.e. in http://www.rigsofrods.com/repository/view/2497
 	E_CAPTURE( E_DELIMITER )
 	E_CAPTURE( ".*$" ) /* #2 Entire line */
 	);
@@ -1388,50 +1492,50 @@ DEFINE_REGEX( FORSET_ELEMENT,
 		E_TRAILING_WHITESPACE
 	)
 	E_OR
-	E_CAPTURE( /* #4 Solitary node (numbered or named) */
+	E_CAPTURE( /* #4 Solitary numbered node */
 		E_LEADING_WHITESPACE
-		E_NODE_ID
+		E_POSITIVE_DECIMAL_NUMBER
 		E_TRAILING_WHITESPACE
 	)
 	);
 
 DEFINE_REGEX( SECTION_FLEXBODYWHEELS,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_REAL_NUMBER ) /* #1 Tire radius */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Rim radius */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Width */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Num rays */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* #5 Node 1 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Node 2 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Ref. node */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Braked? */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Propulsed? */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* #10 Reference arm node */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Weight */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Tire spring */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Tire damp */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Rim spring */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* #15 Rim damp */
-	E_DELIMITER_COMMA
-	E_CAPTURE( "[lr]" ) /* Rim orientation */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_STRING_NO_SPACES ) /* Rim mesh */
-	E_DELIMITER_SPACE
-	E_CAPTURE( E_STRING_NO_SPACES ) /* #18 Tire mesh */
+	E_CAPTURE( E_REAL_NUMBER )                   // #1 Tire radius
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #3 Rim radius
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #5 Width
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )       // #7 Num rays
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #9 Node 1
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #11 Node 2
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #13 Rigidity node
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )       // #15 Braked?
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )       // #17 Propulsed?
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #19 Reference arm node
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #21 Weight
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #23 Tire spring
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #25 Tire damp
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #27 Rim spring
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )                   // #29 Rim damp
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( "[lr]" )                          // #31 Rim orientation
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #33 Rim mesh
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #35 Tire mesh
 	E_TRAILING_WHITESPACE
 	);
 
@@ -1469,14 +1573,16 @@ DEFINE_REGEX( SECTION_GLOBALS,
 	E_CAPTURE( E_REAL_NUMBER ) /* Cargo mass */
 	E_CAPTURE_OPTIONAL( 
 		E_DELIMITER_COMMA
-		E_CAPTURE( E_STRING_NO_SPACES ) /* Truck submesh material */
+		E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) /* Truck submesh material */
 	)
-	E_CAPTURE_OPTIONAL( E_STRING_ANYTHING_BUT_WHITESPACE ) /* #5 Illegal characters at the end */
+    E_CAPTURE_OPTIONAL( E_DELIMITER )                      /* #5 Illegal characters at the end */
+	E_CAPTURE_OPTIONAL( E_STRING_ANYTHING_BUT_WHITESPACE ) /* #6 Illegal characters at the end */
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( SECTION_GUID,
-	"^guid"
+    E_LEADING_WHITESPACE
+	"[Gg][Uu][Ii][Dd]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_STRING_NO_SPACES )
 	E_TRAILING_WHITESPACE
@@ -1509,7 +1615,7 @@ DEFINE_REGEX( SECTION_GUISETTINGS,
 		E_CAPTURE( 
 			"useMaxRPM" 
 			E_DELIMITER_SPACE 
-			E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* #9 Boolean (0/1): Use max RPM from ENGINE section as tacho-max */
+			E_CAPTURE( E_DECIMAL_NUMBER ) /* #9 Boolean (0/1): Use max RPM from ENGINE section as tacho-max */
 			E_TRAILING_WHITESPACE
 		)
 		E_OR
@@ -1634,7 +1740,7 @@ DEFINE_REGEX( SECTION_HYDROS,
 	E_CAPTURE( E_REAL_NUMBER ) /* #5 Lengthening factor */
 	E_CAPTURE_OPTIONAL( 
 		E_CAPTURE( E_DELIMITER )
-		E_CAPTURE( "[nareuvxyghis]*" ) /* #8 Flags */
+		E_CAPTURE( E_STRING_ANYTHING_BUT_WHITESPACE ) /* #8 Flags */
 
 		E_CAPTURE_OPTIONAL(
 			E_CAPTURE( E_DELIMITER )
@@ -1679,7 +1785,7 @@ DEFINE_REGEX( SECTION_LOCKGROUPS,
 
 DEFINE_REGEX( SECTION_MANAGEDMATERIALS,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_STRING_NO_SPACES ) /* #1 Material name */
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) /* #1 Material name */
 	E_CAPTURE( E_DELIMITER )        /* #2 */
 	E_CAPTURE(                      /* #3 Type wrapper */
 		E_CAPTURE( "mesh_standard" )        /* #4 */
@@ -1713,43 +1819,43 @@ DEFINE_REGEX( SECTION_MATERIALFLAREBINDINGS,
 		E_OR
 		E_DELIMITER_SPACE /* Backwards compatibility */
 	)
-	E_CAPTURE( E_STRING_NO_SPACES )        /* #4 Material name */
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER )        /* #4 Material name */
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( SECTION_MESHWHEELS_MESHWHEELS2,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_REAL_NUMBER ) /* Tyre radius */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Rim radius */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Width */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Num rays */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* #5 Node 1 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Node 2 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Ref. node */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Braked? */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Propulsed? */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* #10 Reference arm node */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Mass*/
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Tyre spring */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Tyre damping */
-	E_DELIMITER_COMMA
-	E_CAPTURE( "[lr]" ) /* #14 Rim orientation */
+	E_CAPTURE( E_REAL_NUMBER )                   // #1 Tyre radius
+	E_CAPTURE( E_DELIMITER )                     
+	E_CAPTURE( E_REAL_NUMBER )                   // #3 Rim radius
+	E_CAPTURE( E_DELIMITER )                     
+	E_CAPTURE( E_REAL_NUMBER )                   // #5 Width
 	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_STRING_NO_SPACES ) /* #16 Rim mesh name */
-	E_DELIMITER_SPACE
-	E_CAPTURE( E_STRING_NO_SPACES ) /* #17 Tyre material name */
+	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )       // #7 Num rays
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #9 Node 1
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #11 Node 2
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #13 Rigidity node
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )       // #15 Braked?
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER )       // #17 Propulsed?
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )                       // #19 Reference arm node
+	E_CAPTURE( E_DELIMITER )                     
+	E_CAPTURE( E_REAL_NUMBER )                   // #21 Mass
+	E_CAPTURE( E_DELIMITER )                     
+	E_CAPTURE( E_REAL_NUMBER )                   // #23 Tyre spring
+	E_CAPTURE( E_DELIMITER )                     
+	E_CAPTURE( E_REAL_NUMBER )                   // #25 Tyre damping
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #27 Rim orientation
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #29 Rim mesh name
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #31 Tyre material name
 	E_TRAILING_WHITESPACE
 	);
 
@@ -1768,26 +1874,59 @@ DEFINE_REGEX( SECTION_NODECOLLISION,
 	E_TRAILING_WHITESPACE
 	);
 
-DEFINE_REGEX( SECTION_NODES_N2,
-	E_LEADING_WHITESPACE
-	E_CAPTURE( E_NODE_ID ) /* #1 Node id (integer or string) */
-	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_REAL_NUMBER ) /* #3 X */
-	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_REAL_NUMBER ) /* #5 Y */
-	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_REAL_NUMBER ) /* #7 Z */
-	E_CAPTURE_OPTIONAL( 
-		E_CAPTURE( E_DELIMITER )
-		E_CAPTURE( "[lnmfxychebpL]*" ) /* #10 Options */
+DEFINE_REGEX( SECTION_NODES,
+    E_LEADING_WHITESPACE
+    E_CAPTURE( E_DECIMAL_NUMBER ) /* #1 Node id - integer */
+    E_CAPTURE( E_DELIMITER )
+    E_CAPTURE( E_REAL_NUMBER ) /* #3 X */
+    E_CAPTURE( E_DELIMITER )
+    E_CAPTURE( E_REAL_NUMBER ) /* #5 Y */
+    E_CAPTURE( E_DELIMITER )
+    E_CAPTURE( E_REAL_NUMBER ) /* #7 Z */
+    E_CAPTURE_OPTIONAL( 
+        E_CAPTURE( E_DELIMITER ) // #9 Tolerage dangling delimiter
 
-		E_CAPTURE_OPTIONAL( 
-			E_CAPTURE( E_DELIMITER )
-			E_CAPTURE( E_REAL_NUMBER ) /* #13 Load weight override */
-		)
-	)
-	E_2xCAPTURE_TRAILING_COMMENT
-	);
+        E_CAPTURE_OPTIONAL( 
+            E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) /* #11 Options */
+
+            E_CAPTURE_OPTIONAL( 
+                E_CAPTURE( E_DELIMITER ) // #13 Tolerage dangling delimiter
+
+                E_CAPTURE_OPTIONAL( 
+                    E_CAPTURE( E_REAL_NUMBER ) /* #15 Load weight override */
+                )
+            )
+        )
+    )
+    E_TRAILING_WHITESPACE
+    );
+
+DEFINE_REGEX( SECTION_NODES_2,
+    E_LEADING_WHITESPACE
+    E_CAPTURE( E_NODE_ID ) /* #1 Node id (string) */
+    E_CAPTURE( E_DELIMITER )
+    E_CAPTURE( E_REAL_NUMBER ) /* #3 X */
+    E_CAPTURE( E_DELIMITER )
+    E_CAPTURE( E_REAL_NUMBER ) /* #5 Y */
+    E_CAPTURE( E_DELIMITER )
+    E_CAPTURE( E_REAL_NUMBER ) /* #7 Z */
+    E_CAPTURE_OPTIONAL( 
+        E_CAPTURE( E_DELIMITER ) // #9 Tolerage dangling delimiter
+
+        E_CAPTURE_OPTIONAL( 
+            E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) /* #11 Options */
+
+            E_CAPTURE_OPTIONAL( 
+                E_CAPTURE( E_DELIMITER ) // #13 Tolerage dangling delimiter
+
+                E_CAPTURE_OPTIONAL( 
+                    E_CAPTURE( E_REAL_NUMBER ) /* #15 Load weight override */
+                )
+            )
+        )
+    )
+    E_TRAILING_WHITESPACE
+    );
 
 DEFINE_REGEX( SECTION_PARTICLES,
 	E_LEADING_WHITESPACE
@@ -1847,7 +1986,7 @@ DEFINE_REGEX( SECTION_PROPS,
 	E_CAPTURE( E_DELIMITER )
 	E_CAPTURE( E_REAL_NUMBER )         /* #17 rot. Z */
 	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_STRING_NO_SPACES )    /* #19 Mesh name */
+	E_CAPTURE(E_STRING_ANYTHING_BUT_DELIMITER)    /* #19 Mesh name */
 	E_CAPTURE_OPTIONAL( E_DELIMITER )
 	E_CAPTURE( ".*$" )                 /* #21 Special mesh options part */
 	);
@@ -1879,38 +2018,25 @@ DEFINE_REGEX( SPECIAL_PROPS,
 
 DEFINE_REGEX( SPECIAL_PROP_DASHBOARD,
 	E_LEADING_WHITESPACE
-	E_CAPTURE_OPTIONAL( E_STRING_ANYTHING_BUT_WHITESPACE ) /* #1 Mesh name */
+	E_CAPTURE(E_STRING_ANYTHING_BUT_DELIMITER) // #1 Mesh name
 	E_CAPTURE_OPTIONAL(
-		E_CAPTURE(
-			E_DELIMITER_COMMA
-			E_OR
-			E_DELIMITER_SPACE
+		E_CAPTURE( E_DELIMITER )
+		E_CAPTURE( E_REAL_NUMBER ) // #4 X offset
+
+		E_CAPTURE_OPTIONAL(
+			E_CAPTURE( E_DELIMITER )
+			E_CAPTURE( E_REAL_NUMBER ) // #7 Y offset
+
+			E_CAPTURE_OPTIONAL(
+				E_CAPTURE( E_DELIMITER )
+				E_CAPTURE( E_REAL_NUMBER ) // #10 Z offset
+
+				E_CAPTURE_OPTIONAL(
+					E_CAPTURE( E_DELIMITER )
+					E_CAPTURE( E_REAL_NUMBER ) // #13 Rotation, degrees
+				)
+			)
 		)
-		E_CAPTURE( E_REAL_NUMBER ) /* #4 X offset */
-	)
-	E_CAPTURE_OPTIONAL(
-		E_CAPTURE(
-			E_DELIMITER_COMMA
-			E_OR
-			E_DELIMITER_SPACE
-		)
-		E_CAPTURE( E_REAL_NUMBER ) /* #7 Y offset */
-	)
-	E_CAPTURE_OPTIONAL(
-		E_CAPTURE(
-			E_DELIMITER_COMMA
-			E_OR
-			E_DELIMITER_SPACE
-		)
-		E_CAPTURE( E_REAL_NUMBER ) /* #10 Z offset */
-	)
-	E_CAPTURE_OPTIONAL(
-		E_CAPTURE(
-			E_DELIMITER_COMMA
-			E_OR
-			E_DELIMITER_SPACE
-		)
-		E_CAPTURE( E_REAL_NUMBER ) /* #13 Rotation, degrees */
 	)
 	E_TRAILING_WHITESPACE
 	);
@@ -1969,7 +2095,7 @@ DEFINE_REGEX( SECTION_ROPES,
 	E_CAPTURE( E_NODE_ID ) /* End node */
 	E_CAPTURE_OPTIONAL( 
 		E_DELIMITER_COMMA
-		E_CAPTURE( "[i]" ) /* Flags */
+		E_CAPTURE( E_STRING_NO_SPACES ) /* Flags */
 	)
 	E_TRAILING_WHITESPACE
 	);
@@ -2068,7 +2194,8 @@ DEFINE_REGEX( SECTION_SCREWPROPS,
 	);
 
 DEFINE_REGEX( INLINE_SECTION_SET_SKELETON_DISPLAY,
-	"^set_skeleton_settings"
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Ss][Kk][Ee][Ll][Ee][Tt][Oo][Nn]_[Ss][Ee][Tt][Tt][Ii][Nn][Gg][Ss]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* View distance */
 	E_CAPTURE_OPTIONAL( 
@@ -2079,7 +2206,8 @@ DEFINE_REGEX( INLINE_SECTION_SET_SKELETON_DISPLAY,
 	);
 
 DEFINE_REGEX( INLINE_SECTION_SET_COLLISION_RANGE,
-	"^set_collision_range"
+    E_LEADING_WHITESPACE
+	"[Ss][Ee][Tt]_[Cc][Oo][Ll][Ll][Ii][Ss][Ii][Oo][Nn]_[Rr][Aa][Nn][Gg][Ee]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* Range */
 	E_TRAILING_WHITESPACE
@@ -2087,62 +2215,68 @@ DEFINE_REGEX( INLINE_SECTION_SET_COLLISION_RANGE,
 
 DEFINE_REGEX( SECTION_SHOCKS,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_NODE_ID ) /* Node 1 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Node 2 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Spring */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Damping */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Short bound */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* #6 Long bound */
-	E_CAPTURE( "[\\.]*" )      /* #7 Stray characters */
+	E_CAPTURE( E_NODE_ID )       // #1 Node 1
 	E_CAPTURE( E_DELIMITER )
-	E_CAPTURE( E_REAL_NUMBER ) /* #9 Precompression */
-	E_CAPTURE( "[\\.]*" )      /* #10 Stray characters */
-	E_CAPTURE_OPTIONAL(        /* #11 */
-		E_DELIMITER_COMMA      /* This may be a delimiter or stray comma (encountered in http://www.rigsofrods.com/repository/view/4340, v0.4, shunting coupler) */
-		E_CAPTURE_OPTIONAL( "[^[:blank:],;|]+" ) /* #12 Options */
-	)
-	E_CAPTURE_OPTIONAL(        /* #13 Invalid input */
-		E_CAPTURE( E_DELIMITER )
-		E_CAPTURE( E_STRING_ANYTHING_BUT_WHITESPACE ) /* #15 */
+	E_CAPTURE( E_NODE_ID )       // #3 Node 2
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )   // #5 Spring
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )   // #7 Damping
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )   // #9 Short bound
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )   // #11 Long bound
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER )   // #13 Precompression
+
+	E_CAPTURE_OPTIONAL(
+		E_CAPTURE( E_DELIMITER ) // #15 Delimiter (possibly dangling)
+
+		E_CAPTURE_OPTIONAL(
+			E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER )  // #17 Options
+
+			E_CAPTURE_OPTIONAL( E_DELIMITER )             // #18 Dangling delimiter (fault tolerance)
+		)
 	)
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( SECTION_SHOCKS2,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_NODE_ID ) /* Node 1 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Node 2 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Spring in */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Damping in */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* #5 Spring in progression factor */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Damping in progression factor */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Spring out */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Damping out */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Spring out progression factor */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* #10 Damping out progression factor */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Short bound */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Long bound */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* #13 Precompression */
+	E_CAPTURE( E_NODE_ID )     // #1 Node 1
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID )     // #3 Node 2
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #5 Spring in
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #7 Damping in
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #9 Spring in progression factor
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #11 Damping in progression factor
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #13 Spring out
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #15 Damping out
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #17 Spring out progression factor
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #19 Damping out progression factor
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #21 Short bound
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #23 Long bound
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_REAL_NUMBER ) // #25 Precompression
+
 	E_CAPTURE_OPTIONAL( 
-		E_DELIMITER_COMMA
-		E_CAPTURE( E_STRING_NO_SPACES ) /* #15 Options */
+		E_CAPTURE( E_DELIMITER ) // #27 Delimiter (possibly dangling)
+
+		E_CAPTURE_OPTIONAL(
+			E_CAPTURE( E_STRING_ANYTHING_BUT_DELIMITER ) // #29 Options
+
+			E_CAPTURE_OPTIONAL(E_DELIMITER)              // #30 Dangling delimiter (fault tolerance)
+		)
 	)
 	E_TRAILING_WHITESPACE
 	);
@@ -2186,13 +2320,14 @@ DEFINE_REGEX( SLIDENODES_IDENTIFY_OPTION,
 	)
 	E_CAPTURE_OPTIONAL( /* #15 Constraints entry */
 		"[cC]"
-		E_CAPTURE( "[afsn]" ) /* #16 Constraints value */
+		E_CAPTURE( E_STRING_NO_SPACES ) /* #16 Constraints value */
 	)
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( INLINE_SECTION_SLOPE_BRAKE,
-	"^SlopeBrake"
+    E_LEADING_WHITESPACE
+	"[Ss][Ll][Oo][Pp][Ee][Bb][Rr][Aa][Kk][Ee]"
 	E_CAPTURE_OPTIONAL(
 		E_DELIMITER_SPACE
 		E_CAPTURE( E_REAL_NUMBER ) /* #2 Regulating force */
@@ -2232,7 +2367,8 @@ DEFINE_REGEX( SECTION_SOUNDSOURCES2,
 	);
 
 DEFINE_REGEX( INLINE_SECTION_SPEEDLIMITER,
-	"^speedlimiter"
+    E_LEADING_WHITESPACE
+	"[Ss][Pp][Ee][Ee][Dd][Ll][Ii][Mm][Ii][Tt][Ee][Rr]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* Max speed */
 	E_TRAILING_WHITESPACE
@@ -2250,20 +2386,21 @@ DEFINE_REGEX( SUBMESH_SUBSECTION_TEXCOORDS,
 
 DEFINE_REGEX( SUBMESH_SUBSECTION_CAB,
 	E_LEADING_WHITESPACE
-	E_CAPTURE( E_NODE_ID ) /* Vertex 1 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Vertex 2 */
-	E_DELIMITER_COMMA
-	E_CAPTURE( E_NODE_ID ) /* Vertex 3 */
+	E_CAPTURE( E_NODE_ID ) /* #1 Vertex 1 */
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID ) /* #3 Vertex 2 */
+	E_CAPTURE( E_DELIMITER )
+	E_CAPTURE( E_NODE_ID ) /* #5 Vertex 3 */
 	E_CAPTURE_OPTIONAL( 
-		E_DELIMITER_COMMA
-		E_CAPTURE( "[[:alpha:]]*" ) /* Options */
+		E_CAPTURE( E_DELIMITER )
+		E_CAPTURE( "[[:alpha:]]*" ) /* #8 Options */
 	)
 	E_TRAILING_WHITESPACE
 	);
 
 DEFINE_REGEX( INLINE_SECTION_SUBMESH_GROUNDMODEL,
-	"^submesh_groundmodel"
+    E_LEADING_WHITESPACE
+	"[Ss][Uu][Bb][Mm][Ee][Ss][Hh]_[Gg][Rr][Oo][Uu][Nn][Dd][Mm][Oo][Dd][Ee][Ll]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_STRING_NO_SPACES ) /* Ground type name */	
 	E_TRAILING_WHITESPACE
@@ -2282,7 +2419,7 @@ DEFINE_REGEX( SECTION_TIES,
 	E_CAPTURE( E_REAL_NUMBER ) /* Max length */
 	E_CAPTURE_OPTIONAL( 
 		E_DELIMITER_COMMA
-		E_CAPTURE( "[in]" ) /* Options */
+		E_CAPTURE( E_STRING_NO_SPACES ) /* Options */
 
 		E_CAPTURE_OPTIONAL( 
 			E_DELIMITER_COMMA
@@ -2310,7 +2447,8 @@ DEFINE_REGEX( SECTION_TORQUECURVE,
 	);
 
 DEFINE_REGEX( SECTION_TRACTION_CONTROL,
-	"^TractionControl"
+    E_LEADING_WHITESPACE
+	"[Tt][Rr][Aa][Cc][Tt][Ii][Oo][Nn][Cc][Oo][Nn][Tt][Rr][Oo][Ll]"
 	E_DELIMITER_SPACE
 	E_CAPTURE( E_REAL_NUMBER ) /* Force */
 	E_DELIMITER_COMMA
@@ -2351,15 +2489,15 @@ DEFINE_REGEX( SECTION_TRIGGERS,
 	E_DELIMITER_COMMA
 	E_CAPTURE( E_REAL_NUMBER ) /* Contraction trigger limit */
 	E_DELIMITER_COMMA
-	E_CAPTURE( E_REAL_NUMBER ) /* Expansion trigger limit */
+	E_CAPTURE( E_REAL_NUMBER ) /* Extension trigger limit */
 	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* Contraction trigger key (or engine index with E option) */
+	E_CAPTURE( E_DECIMAL_NUMBER ) /* #5 Contraction trigger action */
 	E_DELIMITER_COMMA
-	E_CAPTURE( E_POSITIVE_DECIMAL_NUMBER ) /* #6 Expansion trigger key (or function number with E option) */
+	E_CAPTURE( E_DECIMAL_NUMBER ) /* #6 Extension trigger action */
 
 	E_CAPTURE_OPTIONAL( 
 		E_DELIMITER_COMMA
-		E_CAPTURE( "[icxbBAshHtE]*" ) /* #8 Options */
+		E_CAPTURE( E_STRING_ALNUM_HYPHENS_USCORES_ONLY ) /* #8 Options */
 	
 		E_CAPTURE_OPTIONAL( 
 			E_DELIMITER_COMMA
@@ -2622,7 +2760,7 @@ DEFINE_REGEX( SECTION_,
 #undef E_TRAILING_WHITESPACE
 #undef E_LEADING_WHITESPACE
 #undef E_STRING_NO_SPACES
-#undef E_STRING_ALNUM_COMMAS_USCORES_ONLY
+#undef E_STRING_ALNUM_HYPHENS_USCORES_ONLY
 #undef E_DECIMAL_NUMBER
 #undef E_POSITIVE_DECIMAL_NUMBER
 #undef E_NEGATIVE_DECIMAL_NUMBER

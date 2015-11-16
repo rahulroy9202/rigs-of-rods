@@ -14,8 +14,11 @@ You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma once
 #ifndef __HydraxWater_H_
 #define __HydraxWater_H_
+
+#include <Ogre.h>
 
 #include "Prerequisites.h"
 #include "Hydrax.h"
@@ -26,7 +29,6 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "ProjectedGrid.h"
 #include "SimpleGrid.h"
 
-#include "Ogre.h"
 #include "Water.h"
 #include "IWater.h"
 #include "TerrainManager.h"

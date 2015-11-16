@@ -67,7 +67,7 @@ public:
 	void RegenCache();
 
 	void BackToMenu();
-
+	void ChangeMap();
 	/**
 	* @return True if everything was prepared OK and simulation may start.
 	*/
@@ -89,6 +89,8 @@ protected:
 
 	void ShowSurveyMap(bool hide);
 
+	void initMatManager();
+
 	bool               m_no_rendering;
 	bool               m_exit_loop_requested;
 	bool               m_shutdown_requested;
@@ -98,8 +100,9 @@ protected:
 	Application::State m_next_application_state;
 	Application::State m_application_state;
 	RigEditor::Main*   m_rig_editor;
-	bool			   m_base_resource_load;
+	bool			   m_base_resource_loaded;
 
+	std::map<std::string, bool> isLoadedMap;
 };
 
 } // namespace RoR

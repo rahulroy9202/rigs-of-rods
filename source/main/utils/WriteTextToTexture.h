@@ -20,10 +20,12 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 
 // source: ogre wiki: http://www.ogre3d.org/wiki/index.php/HowTo:_Write_text_on_texture
 
-#include "RoRPrerequisites.h"
+#pragma once
 
-#include "OgrePrerequisites.h"
 #include <OgreImage.h>
+#include <OgrePrerequisites.h>
+
+#include "RoRPrerequisites.h"
 
 void SaveImage(Ogre::TexturePtr TextureToSave, Ogre::String filename);
 void WriteToTexture(const Ogre::String &str, Ogre::TexturePtr destTexture, Ogre::Image::Box destRectangle, Ogre::Font* font, const Ogre::ColourValue &color, char justify = 'l',  bool wordwrap = true);

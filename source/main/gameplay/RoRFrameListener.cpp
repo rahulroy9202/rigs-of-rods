@@ -298,9 +298,8 @@ bool RoRFrameListener::updateEvents(float dt)
 #endif //USE_MYGUI
 
 #ifdef USE_MYGUI
-	if (RoR::Application::GetInputEngine()->getEventBoolValueBounce(EV_COMMON_ENTER_CHATMODE, 0.5f) && !hidegui)
+	if (RoR::Application::GetInputEngine()->getEventBoolValueBounce(EV_COMMON_ENTER_CHATMODE, 0.5f) && !hidegui && gEnv->network)
 	{
-		//TODO: Separate chat and console
 		RoR::Application::GetInputEngine()->resetKeys();
 		RoR::Application::GetGuiManager()->ShowChatBox();
 	}
@@ -346,8 +345,6 @@ bool RoRFrameListener::updateEvents(float dt)
 			as->addData("User_NickName", SSETTING("Nickname", "Anonymous"));
 			as->addData("User_Language", SSETTING("Language", "English"));
 			as->addData("RoR_VersionString", String(ROR_VERSION_STRING));
-			as->addData("RoR_VersionSVN", String(SVN_REVISION));
-			as->addData("RoR_VersionSVNID", String(SVN_ID));
 			as->addData("RoR_ProtocolVersion", String(RORNET_VERSION));
 			as->addData("RoR_BinaryHash", SSETTING("BinaryHash", ""));
 			as->addData("MP_ServerName", SSETTING("Server name", ""));
@@ -393,7 +390,7 @@ bool RoRFrameListener::updateEvents(float dt)
 		reload_pos = gEnv->player->getPosition() + Vector3(0.0f, 1.0f, 0.0f); // 1 meter above the character
 		freeTruckPosition = true;
 		loading_state = RELOADING;
-		Application::GetGuiManager()->getMainSelector()->show(LT_AllBeam);
+		Application::GetGuiManager()->getMainSelector()->Show(LT_AllBeam);
 		return true;
 	}
 
@@ -473,7 +470,7 @@ bool RoRFrameListener::updateEvents(float dt)
 			// save the settings
 			if (gEnv->cameraManager &&
 				gEnv->cameraManager->hasActiveBehavior() &&
-				gEnv->cameraManager->getCurrentBehavior() == CameraManager::CAMERA_BEHAVIOR_VEHICLE_CINECAM)
+				gEnv->cameraManager->getCurrentBehavior() == RoR::PerVehicleCameraContext::CAMERA_BEHAVIOR_VEHICLE_CINECAM)
 			{
 				SETTINGS.setSetting("FOV Internal", TOSTRING(fov));
 			} else
@@ -780,7 +777,7 @@ bool RoRFrameListener::updateEvents(float dt)
 					{
 #ifdef USE_MYGUI
 						RoR::Application::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE, _L("No rescue truck found!"), "warning.png");
-						RoR::Application::GetGuiManager()->PushNotification("Notice:", _L("No rescue truck found!") + TOSTRING(""));
+						RoR::Application::GetGuiManager()->PushNotification("Notice:", _L("No rescue truck found!"));
 #endif // USE_MYGUI
 					}
 				}
@@ -925,37 +922,37 @@ bool RoRFrameListener::updateEvents(float dt)
 		//no terrain or truck loaded
 
 #ifdef USE_MYGUI
-		if (Application::GetGuiManager()->getMainSelector()->isFinishedSelecting())
+		if (Application::GetGuiManager()->getMainSelector()->IsFinishedSelecting())
 		{
 			if (loading_state==TERRAIN_LOADED)
 			{
-				CacheEntry *selection = Application::GetGuiManager()->getMainSelector()->getSelection();
-				Skin *skin = Application::GetGuiManager()->getMainSelector()->getSelectedSkin();
-				std::vector<String> config = Application::GetGuiManager()->getMainSelector()->getTruckConfig();
+				CacheEntry *selection = Application::GetGuiManager()->getMainSelector()->GetSelectedEntry();
+				Skin *skin = Application::GetGuiManager()->getMainSelector()->GetSelectedSkin();
+				std::vector<String> config = Application::GetGuiManager()->getMainSelector()->GetVehicleConfigs();
 				std::vector<String> *configptr = &config;
 				if (config.size() == 0) configptr = 0;
 				if (selection)
-					initTrucks(true, selection->fname, selection->fext, configptr, false, skin);
+					this->InitTrucks(true, selection->fname, selection->number, selection->fext, configptr, false, skin);
 				else
-					initTrucks(false, "");
+					this->InitTrucks(false, "");
 
 			} 
 			else if (loading_state == RELOADING)
 			{
-				CacheEntry *selection = Application::GetGuiManager()->getMainSelector()->getSelection();
-				Skin *skin = Application::GetGuiManager()->getMainSelector()->getSelectedSkin();
+				CacheEntry *selection = Application::GetGuiManager()->getMainSelector()->GetSelectedEntry();
+				Skin *skin = Application::GetGuiManager()->getMainSelector()->GetSelectedSkin();
 				Beam *local_truck = nullptr;
 				if (selection != nullptr)
 				{
 					/* We load an extra truck */
 					std::vector<String> *config_ptr = nullptr;
-					std::vector<String> config = Application::GetGuiManager()->getMainSelector()->getTruckConfig();
+					std::vector<String> config = Application::GetGuiManager()->getMainSelector()->GetVehicleConfigs();
 					if (config.size() > 0)
 					{
 						config_ptr = & config;
 					}
 
-					local_truck = BeamFactory::getSingleton().createLocal(reload_pos, reload_dir, selection->fname, reload_box, false, config_ptr, skin, freeTruckPosition);
+					local_truck = BeamFactory::getSingleton().CreateLocalRigInstance(reload_pos, reload_dir, selection->fname, selection->number, reload_box, false, config_ptr, skin, freeTruckPosition);
 					freeTruckPosition = false; // reset this, only to be used once
 				}
 
@@ -971,7 +968,7 @@ bool RoRFrameListener::updateEvents(float dt)
 					}
 				}
 
-				Application::GetGuiManager()->getMainSelector()->hide();
+				Application::GetGuiManager()->getMainSelector()->Hide();
 				loading_state = ALL_LOADED;
 
 				RoR::Application::GetGuiManager()->UnfocusGui();
@@ -1144,19 +1141,24 @@ void RoRFrameListener::hideMap()
 }
 
 
-
-void RoRFrameListener::initTrucks(bool loadmanual, Ogre::String selected, Ogre::String selectedExtension /* = "" */, const std::vector<Ogre::String> *truckconfig /* = 0 */, bool enterTruck /* = false */, Skin *skin /* = NULL */)
+void RoRFrameListener::InitTrucks(
+    bool loadmanual, 
+    std::string const & selected, 
+    int cache_entry_number, // = -1 
+    std::string const & selectedExtension, // = ""
+    const std::vector<Ogre::String> *truckconfig, // = nullptr 
+    bool enterTruck, // = false 
+    Skin *skin // = nullptr
+    )
 {
 	//we load truck
-	char *selectedchr = const_cast< char *> (selected.c_str());
-
 	if (loadmanual)
 	{
 		Beam *b = 0;
 		Vector3 spawnpos = gEnv->terrainManager->getSpawnPos();
 		Quaternion spawnrot = Quaternion::ZERO;
 
-		b = BeamFactory::getSingleton().createLocal(spawnpos, spawnrot, selectedchr, 0, false, truckconfig, skin);
+		b = BeamFactory::getSingleton().CreateLocalRigInstance(spawnpos, spawnrot, selected, cache_entry_number, nullptr, false, truckconfig, skin);
 
 		if (enterTruck)
 		{
@@ -1370,15 +1372,10 @@ bool RoRFrameListener::frameStarted(const FrameEvent& evt)
 	}
 
 	//update visual - antishaking
-	if (loading_state == ALL_LOADED)
+	if (loading_state == ALL_LOADED && !this->isSimPaused)
 	{
 		BeamFactory::getSingleton().updateVisual(dt); // Updates flexbodies. When using ThreadPool, it pushes tasks and also waits for them to complete (in this single call)
-
-		// add some example AI
-		//if (loadedTerrain == "simple.terrn2")
-			//BeamFactory::getSingleton().updateAI(dt);
 	}
-
 
 	if (!updateEvents(dt))
 	{
@@ -1531,7 +1528,7 @@ void RoRFrameListener::showLoad(int type, const Ogre::String &instance, const Og
 				{
 #ifdef USE_MYGUI
 					RoR::Application::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE, _L("Please clear the place first"), "error.png");
-					RoR::Application::GetGuiManager()->PushNotification("Notice:", _L("Please clear the place first") + TOSTRING(""));
+					RoR::Application::GetGuiManager()->PushNotification("Notice:", _L("Please clear the place first"));
 #endif // USE_MYGUI
 					gEnv->collisions->clearEventCache();
 					return;
@@ -1546,7 +1543,7 @@ void RoRFrameListener::showLoad(int type, const Ogre::String &instance, const Og
 	hideMap();
 
 #ifdef USE_MYGUI
-	Application::GetGuiManager()->getMainSelector()->show(LoaderType(type));
+	Application::GetGuiManager()->getMainSelector()->Show(LoaderType(type));
 #endif //USE_MYGUI
 }
 
@@ -1658,7 +1655,7 @@ void RoRFrameListener::hideGUI(bool visible)
 		if (curr_truck
 			&& gEnv->cameraManager
 			&& gEnv->cameraManager->hasActiveBehavior()
-			&& gEnv->cameraManager->getCurrentBehavior() != CameraManager::CAMERA_BEHAVIOR_VEHICLE_CINECAM)
+			&& gEnv->cameraManager->getCurrentBehavior() != RoR::PerVehicleCameraContext::CAMERA_BEHAVIOR_VEHICLE_CINECAM)
 		{
 			if (RoR::Application::GetOverlayWrapper()) RoR::Application::GetOverlayWrapper()->showDashboardOverlays(true, curr_truck);
 		}
@@ -1799,7 +1796,7 @@ void RoRFrameListener::reloadCurrentTruck()
 	if (!curr_truck) return;
 
 	// try to load the same truck again
-	Beam *newBeam = BeamFactory::getSingleton().createLocal(reload_pos, reload_dir, curr_truck->realtruckfilename);
+	Beam *newBeam = BeamFactory::getSingleton().CreateLocalRigInstance(reload_pos, reload_dir, curr_truck->realtruckfilename, -1);
 
 	if (!newBeam)
 	{

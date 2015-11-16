@@ -20,6 +20,8 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 // created by thomas fischer, 4th of January 2009
 #include "Settings.h"
 
+#include <Ogre.h>
+
 #if OGRE_PLATFORM == OGRE_PLATFORM_WIN32
 #include <shlobj.h> // for CoCreateGuid and SHGetFolderPathA
 #include <direct.h> // for _chdir
@@ -28,7 +30,6 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #define _L
 
 #include "ErrorUtils.h"
-#include "Ogre.h"
 #include "PlatformUtils.h"
 #include "RoRVersion.h"
 #include "SHA1.h"
@@ -69,7 +70,8 @@ bool FolderExists(Ogre::String const & path)
 }
 
 Settings::Settings():
-	m_flares_mode(-1)
+	m_flares_mode(-1),
+	m_gearbox_mode(-1)
 {
 }
 
@@ -490,6 +492,13 @@ bool Settings::setupPaths()
 	strcpy(ogrelog_fname, user_path);
 	path_add(ogrelog_fname, "logs");
 
+    settings["Log dir"] = ogrelog_fname;
+
+    char profiler_out_dir[1000];
+    strcpy(profiler_out_dir, user_path);
+    path_add(profiler_out_dir, "profiler");
+    settings["Profiler output dir"] = profiler_out_dir;
+
 	char ogrelog_path[1024] = {};
 	strcpy(ogrelog_path, ogrelog_fname);
 	strcat(ogrelog_fname, "RoR.log");
@@ -597,4 +606,31 @@ int Settings::GetFlaresMode(int default_value /*=2*/)
 		return default_value;
 	}
 	return m_flares_mode;
+}
+
+int Settings::GetGearBoxMode(int default_value /*=0*/)
+{
+	if (m_gearbox_mode == -1) // -1: unknown, -2: default, 0+: mode ID
+	{
+		auto itor = settings.find("GearboxMode");
+		if (itor == settings.end())
+		{
+			m_gearbox_mode = -2;
+		}
+		else
+		{
+			if (itor->second == "Automatic shift")	{ m_gearbox_mode = 0; }
+			else if (itor->second == "Manual shift - Auto clutch")	{ m_gearbox_mode = 1; }
+			else if (itor->second == "Fully Manual: sequential shift")	{ m_gearbox_mode = 2; }
+			else if (itor->second == "Fully manual: stick shift")	{ m_gearbox_mode = 3; }
+			else if (itor->second == "Fully Manual: stick shift with ranges")	{ m_gearbox_mode = 4; }
+
+			else { m_gearbox_mode = -2; }
+		}
+	}
+	if (m_gearbox_mode == -2)
+	{
+		return default_value;
+	}
+	return m_gearbox_mode;
 }

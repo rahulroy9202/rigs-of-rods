@@ -26,6 +26,8 @@
 
 #include "GUIManager.h"
 
+#include <MyGUI_OgrePlatform.h>
+
 #include "Application.h"
 #include "BeamFactory.h"
 #include "Console.h"
@@ -36,8 +38,6 @@
 #include "RTTLayer.h"
 #include "Settings.h"
 #include "TerrainManager.h"
-
-#include <MyGUI_OgrePlatform.h>
 
 using namespace Ogre;
 using namespace RoR;
@@ -88,7 +88,7 @@ void GUIManager::createGui()
 {
 	String gui_logfilename = SSETTING("Log Path", "") + "mygui.log";
 	mPlatform = new MyGUI::OgrePlatform();
-	mPlatform->initialise(RoR::Application::GetOgreSubsystem()->GetRenderWindow(), gEnv->sceneManager, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, gui_logfilename); // use cache resource group so preview images are working
+	mPlatform->initialise(RoR::Application::GetOgreSubsystem()->GetRenderWindow(), gEnv->sceneManager, ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME); // use cache resource group so preview images are working
 	mGUI = new MyGUI::Gui();
 
 	// empty init
@@ -155,9 +155,7 @@ void GUIManager::killSimUtils()
 {
 	if (m_gui_SimUtils.get() != nullptr)
 	{
-		//delete(m_gui_SimUtils.get());
-		m_gui_SimUtils->~SimUtils();
-		m_gui_SimUtils = nullptr;
+		m_gui_SimUtils.reset();
 	}	
 }
 
@@ -188,12 +186,13 @@ void GUIManager::framestep(float dt)
 		m_gui_SimUtils->framestep(dt);
 };
 
-void GUIManager::PushNotification(String Title, String text)
+void GUIManager::PushNotification(String Title, UTFString text)
 {
 	if (!m_gui_SimUtils) return;
 
 	m_gui_SimUtils->PushNotification(Title, text);
 }
+
 void GUIManager::windowResized(Ogre::RenderWindow* rw)
 {
 	int width = (int)rw->getWidth();
@@ -351,6 +350,14 @@ void GUIManager::ShowMessageBox(Ogre::String mTitle, Ogre::String mText, bool bu
 	m_gui_gMessageBox->ShowMessageBox(mTitle, mText, button1, mButton1, AllowClose, button2, mButton2);
 }
 
+void GUIManager::UpdateMessageBox(Ogre::String mTitle, Ogre::String mText, bool button1, Ogre::String mButton1, bool AllowClose = false, bool button2 = false, Ogre::String mButton2 = "", bool IsVisible = true)
+{
+	if (m_gui_gMessageBox.get() == nullptr)
+		m_gui_gMessageBox = std::unique_ptr<GUI::gMessageBox>(new GUI::gMessageBox());
+
+	m_gui_gMessageBox->UpdateMessageBox(mTitle, mText, button1, mButton1, AllowClose, button2, mButton2, IsVisible);
+}
+
 int GUIManager::getMessageBoxResult()
 {
 	if (m_gui_gMessageBox.get() == nullptr)
@@ -372,12 +379,17 @@ void GUIManager::ShowMultiPlayerSelector(bool isVisible)
 		m_gui_MultiplayerSelector->Hide();
 }
 
-void GUIManager::initMainSelector()
+void GUIManager::InitMainSelector(RoR::SkinManager* skin_manager)
 {
 	if (m_gui_MainSelector.get() == nullptr)
-		m_gui_MainSelector = std::shared_ptr<GUI::MainSelector>(new GUI::MainSelector());
+	{
+		m_gui_MainSelector = std::shared_ptr<GUI::MainSelector>(new GUI::MainSelector(skin_manager));
+	}
 	else
+	{
+		assert(false && "ERROR: Trying to init MainSelector more than 1 time.");
 		LOG("ERROR: Trying to init MainSelector more than 1 time.");
+	}
 }
 
 void GUIManager::TogglePauseMenu()
@@ -428,11 +440,8 @@ void GUIManager::AddRigLoadingReport(std::string const & vehicle_name, std::stri
 
 void GUIManager::ShowRigSpawnerReportWindow()
 {
-	if (BSETTING("AutoRigSpawnerReport", false))
-	{
-		m_rig_spawner_report_window->CenterToScreen();
-		m_rig_spawner_report_window->Show();
-	}
+	m_rig_spawner_report_window->CenterToScreen();
+	m_rig_spawner_report_window->Show();
 }
 
 void GUIManager::HideRigSpawnerReportWindow()

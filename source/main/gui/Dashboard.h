@@ -17,11 +17,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __Dashboard_H__
 #define __Dashboard_H__
 
+#include <Ogre.h>
+#include <Overlay/OgreOverlay.h>
+
 #include "RoRPrerequisites.h"
-#include "Ogre.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // TODO: Rename these classes! Danger of confusion with 'class DashBoard'. //

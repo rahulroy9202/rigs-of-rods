@@ -17,6 +17,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __AIRBRAKE_H_
 #define __AIRBRAKE_H_
 
@@ -48,8 +50,11 @@ private:
 	float maxangle;
 	float area;
 
+	Ogre::Entity *ec;
+
 public:
 	Airbrake(char* basename, int num, node_t *ndref, node_t *ndx, node_t *ndy, node_t *nda, Ogre::Vector3 pos, float width, float length, float maxang, char* texname, float tx1, float tx2, float tx3, float tx4, float lift_coef);
+	~Airbrake();
 
 	void updatePosition(float amount);
 	void applyForce();

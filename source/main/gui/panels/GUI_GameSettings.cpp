@@ -38,8 +38,10 @@
 #include "MainThread.h"
 #include "OgreSubsystem.h"
 #include "ImprovedConfigFile.h"
+#include "FileSystemInfo.h"
 #include "GUIManager.h"
 #include "Settings.h"
+#include "TerrainManager.h"
 
 #include <MyGUI.h>
 #include <boost/algorithm/string/predicate.hpp>
@@ -49,8 +51,6 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 #endif // USE_OPENAL
-
-#include <dirent.h>
 
 using namespace RoR;
 using namespace GUI;
@@ -65,6 +65,7 @@ CLASS::CLASS()
 
 	MyGUI::WindowPtr win = dynamic_cast<MyGUI::WindowPtr>(mMainWidget);
 	win->eventWindowButtonPressed += MyGUI::newDelegate(this, &CLASS::notifyWindowButtonPressed); //The "X" button thing
+	m_key_mapping_window->eventWindowButtonPressed += MyGUI::newDelegate(this, &CLASS::notifyWindowButtonPressed); //The "X" button thing
 
 	//Buttons
 	m_savebtn->eventMouseButtonClick += MyGUI::newDelegate(this, &CLASS::eventMouseButtonClickSaveButton);
@@ -103,9 +104,15 @@ CLASS::CLASS()
 	
 	m_autohide_chatbox->eventMouseButtonClick += MyGUI::newDelegate(this, &CLASS::OnChatBoxAutoHideCheck);
 
+	m_main_menu_music->eventMouseButtonClick += MyGUI::newDelegate(this, &CLASS::OnEnableMenuMusicCheck);
+	m_flexbodies_lods->eventMouseButtonClick += MyGUI::newDelegate(this, &CLASS::OnEnableFlexLODsCheck);
+	m_flexbody_cache_system->eventMouseButtonClick += MyGUI::newDelegate(this, &CLASS::OnEnableFlexCacheCheck);
+
 	//Key mapping
 	m_tabCtrl->eventTabChangeSelect += MyGUI::newDelegate(this, &CLASS::OnTabChange);
 	m_keymap_group->eventComboChangePosition += MyGUI::newDelegate(this, &CLASS::OnKeymapTypeChange);
+	m_change_key->eventMouseButtonClick += MyGUI::newDelegate(this, &CLASS::OnReMapPress);
+	startCounter = false;
 
 	//Sliders
 	m_volume_slider->eventScrollChangePosition += MyGUI::newDelegate(this, &CLASS::OnVolumeSlider);
@@ -114,6 +121,7 @@ CLASS::CLASS()
 
 	MyGUI::IntSize gui_area = MyGUI::RenderManager::getInstance().getViewSize();
 	mMainWidget->setPosition(gui_area.width/2 - mMainWidget->getWidth()/2, gui_area.height/2 - mMainWidget->getHeight()/2);
+	m_key_mapping_window->setPosition(gui_area.width / 2 - m_key_mapping_window->getWidth() / 2, gui_area.height / 2 - m_key_mapping_window->getHeight() / 2);
 
 	if (!BSETTING("DevMode", false))
 	{
@@ -147,8 +155,24 @@ void CLASS::Hide(bool isMenu)
 
 void CLASS::notifyWindowButtonPressed(MyGUI::WidgetPtr _sender, const std::string& _name)
 {
-	if (_name == "close")
-		Hide();
+	if (_sender == mMainWidget)
+	{
+		if (_name == "close")
+			Hide();
+	}
+	else if (_sender == m_key_mapping_window)
+	{
+		if (_name == "close")
+		{
+			if (startCounter)
+				startCounter = false;
+
+			if (isFrameActivated)
+				MyGUI::Gui::getInstance().eventFrameStart -= MyGUI::newDelegate(this, &CLASS::FrameEntered);
+
+			m_key_mapping_window->setVisibleSmooth(false);
+		}
+	}
 }
 
 void CLASS::eventMouseButtonClickSaveButton(MyGUI::WidgetPtr _sender)
@@ -349,13 +373,17 @@ void CLASS::UpdateControls()
 	else
 		m_tex_filter->setIndexSelected(0);
 
-	m_water_type->addItem("Hydrax"); //It's working good enough to be here now. 
+	if (!IsLoaded)
+	{
+		m_water_type->addItem("Hydrax"); //It's working good enough to be here now. 
+		m_shadow_type->addItem("Parallel-split Shadow Maps");
+	}
 
 	if (BSETTING("DevMode", false) && !IsLoaded)
 	{
 		//Things that aren't ready to be used yet.
 		m_sky_type->addItem("SkyX (best looking, slower)");
-		m_shadow_type->addItem("Parallel-split Shadow Maps");
+	
 	}
 
 	//Sky effects
@@ -369,12 +397,10 @@ void CLASS::UpdateControls()
 
 	//Shadow technique
 	Ogre::String shadowtype = GameSettingsMap["Shadow technique"];
-	if (shadowtype == "Texture shadows")
+	if (shadowtype == "Texture shadows)")
 		m_shadow_type->setIndexSelected(1);
-	else if (shadowtype == "Stencil shadows (best looking)")
+	else if (shadowtype == "Parallel-split Shadow Maps")
 		m_shadow_type->setIndexSelected(2);
-	else if (shadowtype == "Parallel-split Shadow Maps" && BSETTING("DevMode", false))
-		m_shadow_type->setIndexSelected(3);
 	else
 		m_shadow_type->setIndexSelected(0);
 
@@ -546,7 +572,7 @@ void CLASS::UpdateControls()
 	long sight_range = Ogre::StringConverter::parseLong(GameSettingsMap["SightRange"], 5000);
 	m_sightrange->setScrollRange(5000);
 	m_sightrange->setScrollPosition(sight_range -1);
-	if (sight_range >= 4999)
+	if (sight_range >= TerrainManager::UNLIMITED_SIGHTRANGE)
 		m_sightrange_indicator->setCaption("Unlimited");
 	else
 		m_sightrange_indicator->setCaption(Ogre::StringConverter::toString(sight_range) + " m");		
@@ -565,6 +591,27 @@ void CLASS::UpdateControls()
 		m_autohide_chatbox->setStateCheck(true);
 	else
 		m_autohide_chatbox->setStateCheck(false);
+
+	if (GameSettingsMap["Flexbody_EnableLODs"] == "Yes")
+		m_flexbodies_lods->setStateCheck(true);
+	else
+		m_flexbodies_lods->setStateCheck(false);
+
+	if (GameSettingsMap["Flexbody_UseCache"] == "Yes")
+		m_flexbody_cache_system->setStateCheck(true);
+	else
+		m_flexbody_cache_system->setStateCheck(false);
+
+	Ogre::String skidmarks_quality = GameSettingsMap["SkidmarksBuckets"];
+	if (skidmarks_quality == "5")
+		m_skidmarks_quality->setIndexSelected(1);
+	else
+		m_skidmarks_quality->setIndexSelected(0);
+
+	if (GameSettingsMap["MainMenuMusic"] == "Yes")
+		m_main_menu_music->setStateCheck(true);
+	else
+		m_main_menu_music->setStateCheck(false);
 }
 
 void CLASS::OnArcadeModeCheck(MyGUI::WidgetPtr _sender)
@@ -589,9 +636,9 @@ void CLASS::OnCreakSoundCheck(MyGUI::WidgetPtr _sender)
 {
 	m_d_creak_sound->setStateCheck(!m_d_creak_sound->getStateCheck());
 	if (m_d_creak_sound->getStateCheck() == false)
-		GameSettingsMap["Creak Sound"] = "No";
-	else
 		GameSettingsMap["Creak Sound"] = "Yes";
+	else
+		GameSettingsMap["Creak Sound"] = "No";
 	ShowRestartNotice = true;
 }
 
@@ -803,6 +850,35 @@ void CLASS::OnChatBoxAutoHideCheck(MyGUI::WidgetPtr _sender)
 	//ShowRestartNotice = true;
 }
 
+void CLASS::OnEnableFlexLODsCheck(MyGUI::WidgetPtr _sender)
+{
+	m_flexbodies_lods->setStateCheck(!m_flexbodies_lods->getStateCheck());
+	if (m_flexbodies_lods->getStateCheck())
+		GameSettingsMap["Flexbody_EnableLODs"] = "Yes";
+	else
+		GameSettingsMap["Flexbody_EnableLODs"] = "No";
+	ShowRestartNotice = true;
+}
+
+void CLASS::OnEnableFlexCacheCheck(MyGUI::WidgetPtr _sender)
+{
+	m_flexbody_cache_system->setStateCheck(!m_flexbody_cache_system->getStateCheck());
+	if (m_flexbody_cache_system->getStateCheck())
+		GameSettingsMap["Flexbody_UseCache"] = "Yes";
+	else
+		GameSettingsMap["Flexbody_UseCache"] = "No";
+	ShowRestartNotice = true;
+}
+
+void CLASS::OnEnableMenuMusicCheck(MyGUI::WidgetPtr _sender)
+{
+	m_main_menu_music->setStateCheck(!m_main_menu_music->getStateCheck());
+	if (m_main_menu_music->getStateCheck())
+		GameSettingsMap["MainMenuMusic"] = "Yes";
+	else
+		GameSettingsMap["MainMenuMusic"] = "No";
+	ShowRestartNotice = true;
+}
 void CLASS::OnVolumeSlider(MyGUI::ScrollBar* _sender, size_t _position)
 {
 	GameSettingsMap["Sound Volume"] = Ogre::StringConverter::toString(_position); //Erm, it's a string in the config map, isn't it?
@@ -865,6 +941,11 @@ void CLASS::SaveSettings()
 
 	if (GameSettingsMap["Water effects"] == "Hydrax")
 		GameSettingsMap["SightRange"] = "5000";
+
+	if (m_skidmarks_quality->getCaption() == "Normal")
+		GameSettingsMap["SkidmarksBuckets"] = "0";
+	else
+		GameSettingsMap["SkidmarksBuckets"] = "5";
 
 	if (isKeyMapLoaded)
 	{
@@ -1013,6 +1094,7 @@ void CLASS::LoadKeyMap()
 		}
 	}
 	isKeyMapLoaded = true;
+	m_keymapping->setIndexSelected(0);
 }
 
 void CLASS::OnKeymapTypeChange(MyGUI::ComboBox* _sender, size_t _index)
@@ -1049,41 +1131,95 @@ void CLASS::OnKeymapTypeChange(MyGUI::ComboBox* _sender, size_t _index)
 			}
 		}
 	}
+	m_keymapping->setIndexSelected(0);
 }
 
 void CLASS::eventMouseButtonClickClearCache(MyGUI::WidgetPtr _sender)
 {
-	//Should work for windows and Linux
-	DIR *pdir;
-	struct dirent *pent;
-	pdir = opendir(GameSettingsMap["Cache Path"].c_str());
-	if (!pdir)
-	{
-		LOG("Error while clearing cache: directory does not exist.");
-		return;
-	}
-	while ((pent = readdir(pdir)))
-	{
-		try
-		{
-			//cout << pent->d_name;
-			Ogre::String file_delete = pent->d_name;
-			file_delete = GameSettingsMap["Cache Path"].c_str() + file_delete;
-			std::remove(file_delete.c_str()); // Should work on linux and windows
-		}
-		catch (...)
-		{
-			LOG("Error while clearing cache: something went wrong.");
-			return;
-		}
+	// List files in cache
+	RoR::FileSystem::VectorFileInfo cache_files;
+	std::string cache_dir_str = GameSettingsMap["Cache Path"];
+	std::wstring cache_dir_wstr = MyGUI::UString(cache_dir_str).asWStr();
+	RoR::FileSystem::getSystemFileList(cache_files, cache_dir_wstr, L"*.*");
 
-	}
-
-	closedir(pdir);
-	pdir = NULL;
-	pent = nullptr;
+	// Remove files
+	std::for_each(cache_files.begin(), cache_files.end(), [cache_dir_wstr](RoR::FileSystem::FileInfo& file_info) {
+		MyGUI::UString path_to_delete = RoR::FileSystem::concatenatePath(cache_dir_wstr, file_info.name);
+		std::remove(path_to_delete.asUTF8_c_str());
+	});
 
 	ShowRestartNotice = true;
 	RoR::Application::GetGuiManager()->ShowMessageBox("Cache cleared", "Cache cleared succesfully, you need to restart the game for the changes to apply.", true, "Ok", true, false, "");
+
+}
+
+void CLASS::OnReMapPress(MyGUI::WidgetPtr _sender)
+{
+		Ogre::String str_text = "";
+		str_text += "Press any button/Move your joystick axis to map it to this event. \nYou can also close this window to cancel the mapping. \n\n";
+		str_text += "#66FF33 Event: #FFFFFF" + m_keymapping->getSubItemNameAt(0, m_keymapping->getItemIndexSelected()) + "\n";
+		str_text += "#66FF33 Current Key: #FFFFFF" + m_keymapping->getSubItemNameAt(1, m_keymapping->getItemIndexSelected());
+		m_key_mapping_window->setCaptionWithReplacing("Assign new key");
+		m_key_mapping_window_text->setCaptionWithReplacing(str_text);
+		m_key_mapping_window->setVisibleSmooth(true);
+
+		MyGUI::Gui::getInstance().eventFrameStart += MyGUI::newDelegate(this, &CLASS::FrameEntered);
+		isFrameActivated = true;
+
+		m_key_mapping_window_info->setCaptionWithReplacing("");
+		mMainWidget->setEnabledSilent(true);
+
+		str_text = "";
+}
+
+void CLASS::FrameEntered(float dt)
+{
+	unsigned long Timer = Ogre::Root::getSingleton().getTimer()->getMilliseconds();
+
+	if (RoR::Application::GetInputEngine()->isKeyDown(OIS::KC_RETURN) || RoR::Application::GetInputEngine()->isKeyDown(OIS::KC_ESCAPE))
+	{
+		MyGUI::Gui::getInstance().eventFrameStart -= MyGUI::newDelegate(this, &CLASS::FrameEntered);
+		isFrameActivated = false;
+
+		m_key_mapping_window->setVisibleSmooth(false);
+		return;
+	}
+
+	std::string combo;
+	int keys = RoR::Application::GetInputEngine()->getCurrentKeyCombo(&combo);
+	if (keys != 0)
+	{
+		endTime = Timer + 5000;
+		startCounter = true;
+		LastKeyCombo = Ogre::String(combo.c_str());
+
+		Ogre::String str_text = "";
+		str_text += "Press any button/Move your joystick axis to map it to this event. \nYou can also close this window to cancel the mapping. \n\n";
+		str_text += "#66FF33 Event: #FFFFFF" + m_keymapping->getSubItemNameAt(0, m_keymapping->getItemIndexSelected()) + "\n";
+		str_text += "#66FF33 Current Key: #FFFFFF" + m_keymapping->getSubItemNameAt(1, m_keymapping->getItemIndexSelected()) + "\n";
+		str_text += "#66FF33 New Key: #FFFFFF" + LastKeyCombo;
+		m_key_mapping_window_text->setCaptionWithReplacing(str_text);
+		
+		str_text = "";
+	}
+
+	if (startCounter)
+	{
+		long timer1 = Timer - endTime;
+		m_key_mapping_window_info->setCaptionWithReplacing("Changes will apply in: " + Ogre::StringConverter::toString(-timer1) + " Seconds");
+		if (timer1 == 0)
+		{
+			m_keymapping->setSubItemNameAt(1, m_keymapping->getItemIndexSelected(), LastKeyCombo);
+
+			startCounter = false;
+			LastKeyCombo = "";
+
+			MyGUI::Gui::getInstance().eventFrameStart -= MyGUI::newDelegate(this, &CLASS::FrameEntered);
+			isFrameActivated = false;
+
+			m_key_mapping_window->setVisibleSmooth(false);
+			return;
+		}
+	}
 
 }

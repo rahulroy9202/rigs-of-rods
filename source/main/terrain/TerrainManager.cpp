@@ -19,6 +19,8 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "TerrainManager.h"
 
+#include <Terrain/OgreTerrainPaging.h>
+
 #include "BeamData.h"
 #include "BeamFactory.h"
 #include "Collisions.h"
@@ -41,7 +43,6 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "TerrainObjectManager.h"
 #include "Utils.h"
 #include "Water.h"
-#include "OgreTerrainPaging.h"
 
 using namespace Ogre;
 
@@ -254,6 +255,8 @@ void TerrainManager::loadTerrain(String filename)
 void TerrainManager::initSubSystems()
 {
 	// geometry - ogre terrain things
+	initShadows();
+
 	PROGRESS_WINDOW(15, _L("Initializing Geometry Subsystem"));
 	initGeometry();
 
@@ -268,7 +271,7 @@ void TerrainManager::initSubSystems()
 	initScripting();
 
 	PROGRESS_WINDOW(21, _L("Initializing Shadow Subsystem"));
-	initShadows();
+	
 
 	PROGRESS_WINDOW(25, _L("Initializing Camera Subsystem"));
 	initCamera();
@@ -280,8 +283,11 @@ void TerrainManager::initSubSystems()
 	PROGRESS_WINDOW(27, _L("Initializing Light Subsystem"));
 	initLight();
 
-//	PROGRESS_WINDOW(29, _L("Initializing Fog Subsystem")); // Not needed / overrides Settings in Skysubsystem !
-//	initFog();
+	if (SSETTING("Sky effects", "Sandstorm (fastest)") == "Sandstorm (fastest)") //Caelum has its own fog management
+	{
+		PROGRESS_WINDOW(29, _L("Initializing Fog Subsystem"));
+		initFog();
+	}
 
 	PROGRESS_WINDOW(31, _L("Initializing Vegetation Subsystem"));
 	initVegetation();
@@ -330,17 +336,15 @@ void TerrainManager::initCamera()
 	if (far_clip < UNLIMITED_SIGHTRANGE)
 		gEnv->mainCamera->setFarClipDistance(far_clip);
 	else
-		gEnv->mainCamera->setFarClipDistance(0); //Unlimited
+	{
+		String waterSettingsString = SSETTING("Water effects", "Hydrax");
 
-	String waterSettingsString = SSETTING("Water effects", "Hydrax");
-
-	// disabled in global config
-	if (waterSettingsString == "None") return;
-	// disabled in map config
-	if (!StringConverter::parseBool(m_terrain_config.getSetting("Water", "General"))) return;
-
-	if (waterSettingsString == "Hydrax" && far_clip >= UNLIMITED_SIGHTRANGE)
-		gEnv->mainCamera->setFarClipDistance(9999*6); //Unlimited
+		// disabled in global config
+		if (waterSettingsString != "Hydrax")
+			gEnv->mainCamera->setFarClipDistance(0); //Unlimited
+		else
+			gEnv->mainCamera->setFarClipDistance(9999 * 6); //Unlimited for hydrax and stuff
+	}
 }
 
 void TerrainManager::initSkySubSystem()
@@ -399,10 +403,13 @@ void TerrainManager::initLight()
 		main_light = gEnv->sceneManager->createLight("MainLight");
 		//directional light for shadow
 		main_light->setType(Light::LT_DIRECTIONAL);
-		main_light->setDirection(0.785, -0.423, 0.453);
+		main_light->setDirection(Ogre::Vector3(0.785, -0.423, 0.453).normalisedCopy());
 
 		main_light->setDiffuseColour(ambient_color);
 		main_light->setSpecularColour(ambient_color);
+		main_light->setCastShadows(true);
+		main_light->setShadowFarDistance(1000.0f);
+		main_light->setShadowNearClipDistance(-1);
 	}
 }
 
@@ -411,7 +418,7 @@ void TerrainManager::initFog()
 	if (far_clip >= UNLIMITED_SIGHTRANGE)
 		gEnv->sceneManager->setFog(FOG_NONE);
 	else
-		gEnv->sceneManager->setFog(FOG_LINEAR, ambient_color, 0.0f, far_clip * 0.7f, far_clip * 0.9f);
+		gEnv->sceneManager->setFog(FOG_LINEAR, ambient_color, 0.000f, far_clip * 0.65f, far_clip*0.9);
 }
 
 void TerrainManager::initVegetation()
@@ -464,92 +471,81 @@ void TerrainManager::initGlow()
 
 void TerrainManager::initMotionBlur()
 {
-	// Motion blur effect
-	CompositorPtr comp3 = CompositorManager::getSingleton().create("MotionBlur", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+	// Motion blur effect taken from Ogre 1.8 Compositor demos
+	Ogre::CompositorPtr comp3 = Ogre::CompositorManager::getSingleton().create("MotionBlur", Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
 	{
-		CompositionTechnique *t = comp3->createTechnique();
+		Ogre::CompositionTechnique *t = comp3->createTechnique();
 		{
-			CompositionTechnique::TextureDefinition *def = t->createTextureDefinition("scene");
+			Ogre::CompositionTechnique::TextureDefinition *def = t->createTextureDefinition("scene");
 			def->width = 0;
 			def->height = 0;
-#if OGRE_VERSION>0x010602
-			def->formatList.push_back(PF_R8G8B8);
-#else
-			def->format = PF_R8G8B8;
-#endif //OGRE_VERSION
+			def->formatList.push_back(Ogre::PF_R8G8B8);
 		}
 		{
-			CompositionTechnique::TextureDefinition *def = t->createTextureDefinition("sum");
+			Ogre::CompositionTechnique::TextureDefinition *def = t->createTextureDefinition("sum");
 			def->width = 0;
 			def->height = 0;
-#if OGRE_VERSION>0x010602
-			def->formatList.push_back(PF_R8G8B8);
-#else
-			def->format = PF_R8G8B8;
-#endif //OGRE_VERSION
+			def->formatList.push_back(Ogre::PF_R8G8B8);
 		}
 		{
-			CompositionTechnique::TextureDefinition *def = t->createTextureDefinition("temp");
+			Ogre::CompositionTechnique::TextureDefinition *def = t->createTextureDefinition("temp");
 			def->width = 0;
 			def->height = 0;
-#if OGRE_VERSION>0x010602
-			def->formatList.push_back(PF_R8G8B8);
-#else
-			def->format = PF_R8G8B8;
-#endif //OGRE_VERSION
+			def->formatList.push_back(Ogre::PF_R8G8B8);
 		}
-		// Render scene
+		/// Render scene
 		{
-			CompositionTargetPass *tp = t->createTargetPass();
-			tp->setInputMode(CompositionTargetPass::IM_PREVIOUS);
+			Ogre::CompositionTargetPass *tp = t->createTargetPass();
+			tp->setInputMode(Ogre::CompositionTargetPass::IM_PREVIOUS);
 			tp->setOutputName("scene");
 		}
-		// Initialization pass for sum texture
+		/// Initialisation pass for sum texture
 		{
-			CompositionTargetPass *tp = t->createTargetPass();
-			tp->setInputMode(CompositionTargetPass::IM_PREVIOUS);
+			Ogre::CompositionTargetPass *tp = t->createTargetPass();
+			tp->setInputMode(Ogre::CompositionTargetPass::IM_PREVIOUS);
 			tp->setOutputName("sum");
 			tp->setOnlyInitial(true);
 		}
-		// Do the motion blur
+		/// Do the motion blur
 		{
-			CompositionTargetPass *tp = t->createTargetPass();
-			tp->setInputMode(CompositionTargetPass::IM_NONE);
+			Ogre::CompositionTargetPass *tp = t->createTargetPass();
+			tp->setInputMode(Ogre::CompositionTargetPass::IM_NONE);
 			tp->setOutputName("temp");
-			{
-				CompositionPass *pass = tp->createPass();
-				pass->setType(CompositionPass::PT_RENDERQUAD);
-				pass->setMaterialName("Compositor/Combine");
+			{ 
+				Ogre::CompositionPass *pass = tp->createPass();
+				pass->setType(Ogre::CompositionPass::PT_RENDERQUAD);
+				pass->setMaterialName("Ogre/Compositor/Combine");
 				pass->setInput(0, "scene");
 				pass->setInput(1, "sum");
 			}
 		}
-		// Copy back sum texture
+		/// Copy back sum texture
 		{
-			CompositionTargetPass *tp = t->createTargetPass();
-			tp->setInputMode(CompositionTargetPass::IM_NONE);
+			Ogre::CompositionTargetPass *tp = t->createTargetPass();
+			tp->setInputMode(Ogre::CompositionTargetPass::IM_NONE);
 			tp->setOutputName("sum");
-			{
-				CompositionPass *pass = tp->createPass();
-				pass->setType(CompositionPass::PT_RENDERQUAD);
-				pass->setMaterialName("Compositor/Copyback");
+			{ 
+				Ogre::CompositionPass *pass = tp->createPass();
+				pass->setType(Ogre::CompositionPass::PT_RENDERQUAD);
+				pass->setMaterialName("Ogre/Compositor/Copyback");
 				pass->setInput(0, "temp");
 			}
 		}
-		// Display result
+		/// Display result
 		{
-			CompositionTargetPass *tp = t->getOutputTargetPass();
-			tp->setInputMode(CompositionTargetPass::IM_NONE);
-			{
-				CompositionPass *pass = tp->createPass();
-				pass->setType(CompositionPass::PT_RENDERQUAD);
-				pass->setMaterialName("Compositor/MotionBlur");
+			Ogre::CompositionTargetPass *tp = t->getOutputTargetPass();
+			tp->setInputMode(Ogre::CompositionTargetPass::IM_NONE);
+			{ 
+				Ogre::CompositionPass *pass = tp->createPass();
+				pass->setType(Ogre::CompositionPass::PT_RENDERQUAD);
+				pass->setMaterialName("Ogre/Compositor/MotionBlur");
 				pass->setInput(0, "sum");
 			}
 		}
 	}
-	CompositorManager::getSingleton().addCompositor(gEnv->mainCamera->getViewport(),"MotionBlur");
-	CompositorManager::getSingleton().setCompositorEnabled(gEnv->mainCamera->getViewport(), "MotionBlur", true);
+
+	Ogre::CompositorManager::getSingleton().addCompositor(gEnv->mainCamera->getViewport(),"MotionBlur");
+	Ogre::CompositorManager::getSingleton().setCompositorEnabled(gEnv->mainCamera->getViewport(), "MotionBlur", true);
 }
 
 void TerrainManager::initSunburn()

@@ -17,11 +17,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __HeatHaze_H_
 #define __HeatHaze_H_
 
+#include <Ogre.h>
+
 #include "RoRPrerequisites.h"
-#include "Ogre.h"
 
 class HeatHazeListener : public Ogre::RenderTargetListener, public ZeroedMemoryAllocator
 {

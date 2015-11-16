@@ -89,6 +89,9 @@ private:
 	void OnReplayEnableCheck(MyGUI::WidgetPtr _sender);
 	void OnHqScreenshotsCheck(MyGUI::WidgetPtr _sender);
 	void OnChatBoxAutoHideCheck(MyGUI::WidgetPtr _sender);
+	void OnEnableFlexLODsCheck(MyGUI::WidgetPtr _sender);
+	void OnEnableFlexCacheCheck(MyGUI::WidgetPtr _sender);
+	void OnEnableMenuMusicCheck(MyGUI::WidgetPtr _sender);
 
 	//Sliders
 	void OnVolumeSlider(MyGUI::ScrollBar* _sender, size_t _position);
@@ -100,6 +103,12 @@ private:
 	void LoadKeyMap();
 	void OnKeymapTypeChange(MyGUI::ComboBox* _sender, size_t _index);
 	bool isKeyMapLoaded;
+	void OnReMapPress(MyGUI::WidgetPtr _sender);
+	void FrameEntered(float dt);
+	bool startCounter;
+	unsigned long endTime;
+	Ogre::String LastKeyCombo;
+	bool isFrameActivated;
 
 	std::map<int, std::vector<event_trigger_t> > KeyMap;
 

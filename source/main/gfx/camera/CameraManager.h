@@ -17,6 +17,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __CAMERA_MANAGER_H_
 #define __CAMERA_MANAGER_H_
 
@@ -81,7 +83,13 @@ public:
 	size_t getMemoryUsage();
 	void freeResources() {};
 
+	void OnReturnToMainMenu();
+	void NotifyVehicleChanged(Beam* old_vehicle, Beam* new_vehicle);
+
 protected:
+
+	void createGlobalBehaviors();
+	void SwitchBehaviorOnVehicleChange(int newBehaviorID, bool reset, Beam* old_vehicle, Beam* new_vehicle);
 
 	CameraContext ctx;
 
@@ -92,8 +100,6 @@ protected:
 	IBehavior<CameraContext> *currentBehavior;
 
 	std::map <int , IBehavior<CameraContext> *> globalBehaviors;
-
-	void createGlobalBehaviors();
 
 	bool mouseMoved(const OIS::MouseEvent& _arg);
 	bool mousePressed(const OIS::MouseEvent& _arg, OIS::MouseButtonID _id);

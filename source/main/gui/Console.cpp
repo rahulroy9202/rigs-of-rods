@@ -55,10 +55,6 @@ using namespace GUI;
 
 //Console layout manager
 
-// the delimiters that decide where a word is finished
-const UTFString wordDelimiters = " \\\"\'|.,`!;<>~{}()+&%$@"; //TODO
-const char *builtInCommands[] = {"/help", "/log", "/pos", "/goto", "/terrainheight", "/ver", "/save", "/whisper", "/as", NULL};
-
 // class
 Console::Console()
 {
@@ -80,6 +76,8 @@ Console::Console()
 	m_Console_TextBox->eventKeyButtonPressed += MyGUI::newDelegate(this, &Console::eventButtonPressed);
 
 	m_Console_Send->eventMouseButtonClick += MyGUI::newDelegate(this, &Console::eventMouseButtonClickSendButton);
+
+	MyGUI::Gui::getInstance().eventFrameStart += MyGUI::newDelegate(this, &Console::frameEntered);
 
 #ifdef USE_ANGELSCRIPT
 	//ScriptEngine::getSingleton().loadScript("Console.as");
@@ -109,6 +107,11 @@ bool Console::getVisible()
 	return ((MyGUI::Window*)mMainWidget)->getVisible();
 }
 
+void Console::frameEntered(float dt)
+{
+	messageUpdate(dt);
+}
+
 void Console::putMessage( int type, int sender_uid, UTFString txt, String icon, unsigned long ttl, bool forcevisible )
 {
 	ConsoleMessage t;
@@ -123,43 +126,39 @@ void Console::putMessage( int type, int sender_uid, UTFString txt, String icon, 
 	strncpy(t.icon, icon.c_str(), 50);
 	//t.channel = "default";
 
-	showMessage(t);
+	//showMessage(t);
+	push(t);
 }
 
-void Console::showMessage(ConsoleMessage msg)
+void Console::messageUpdate(float dt)
 {
-	//TextCol = "";
-	TextCol = "#FFFFFF";
-	/*
-	if (msg.type == CONSOLE_MSGTYPE_LOG)
-		TextCol = "#FFFFFF";
-	else if (msg.type == CONSOLE_MSGTYPE_INFO)
-		TextCol = "#00FF00";
-	else if (msg.type == CONSOLE_MSGTYPE_SCRIPT)
-		TextCol = "#3399FF";
-	else if (msg.type == CONSOLE_MSGTYPE_NETWORK)
-		TextCol = "#9900FF";
-	else
-		TextCol = "#FFFFFF";*/
+	std::vector<ConsoleMessage> tmpWaitingMessages;
+	int results = pull(tmpWaitingMessages);
 
-	if (msg.sender_uid == CONSOLE_TITLE)
-		TextCol = "#FF8100"; //Orange
-	else if (msg.sender_uid == CONSOLE_SYSTEM_ERROR)
-		TextCol = "#FF0000"; //Red
-	else if (msg.sender_uid == CONSOLE_SYSTEM_REPLY)
-		TextCol = "#00FF00"; //Green
-	else if (msg.sender_uid == CONSOLE_HELP)
-		TextCol = "#72C0E0"; //Light blue
+	int r = 0;
+	if (results > 0)
+	{
+		for (int i = 0; i < results; i++, r++)
+		{
+			TextCol = "#FFFFFF";
+			if (tmpWaitingMessages[i].sender_uid == CONSOLE_TITLE)
+				TextCol = "#FF8100"; //Orange
+			else if (tmpWaitingMessages[i].sender_uid == CONSOLE_SYSTEM_ERROR)
+				TextCol = "#FF0000"; //Red
+			else if (tmpWaitingMessages[i].sender_uid == CONSOLE_SYSTEM_REPLY)
+				TextCol = "#00FF00"; //Green
+			else if (tmpWaitingMessages[i].sender_uid == CONSOLE_HELP)
+				TextCol = "#72C0E0"; //Light blue
 
-	ConsoleText += TextCol + msg.txt + "\n";
+			ConsoleText += TextCol + tmpWaitingMessages[i].txt + "\n";
 
-	/*if (msg.forcevisible)
-		setVisible(true);*/
 
-	m_Console_MainBox->setMaxTextLength(ConsoleText.length() + 1);
+			m_Console_MainBox->setMaxTextLength(ConsoleText.length() + 1);
 
-	//if (getVisible())
-		m_Console_MainBox->setCaptionWithReplacing(ConsoleText);
+			//if (getVisible())
+			m_Console_MainBox->setCaptionWithReplacing(ConsoleText);
+		}
+	}
 }
 
 #if OGRE_VERSION < ((1 << 16) | (8 << 8 ) | 0)
@@ -199,7 +198,7 @@ void Console::eventMouseButtonClickSendButton(MyGUI::WidgetPtr _sender)
 
 void Console::eventButtonPressed(MyGUI::Widget* _sender, MyGUI::KeyCode _key, MyGUI::Char _char)
 {
-	switch (_key.toValue())
+	switch (_key.getValue())
 	{
 		case MyGUI::KeyCode::ArrowUp:
 		{
@@ -267,7 +266,7 @@ void Console::eventCommandAccept(MyGUI::Edit* _sender)
 			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_HELP, _L("/as <code here> - interpret angel code using console"), "script_go.png");
 #endif // USE_ANGELSCRIPT
 
-			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_HELP, _L("/setgravity <real> or <text string> - changes terrain's gravity"), "script_go.png");
+			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_HELP, _L("/gravity <real> or <text string> - changes terrain's gravity, if no value is entred, shows current gravity"), "script_go.png");
 			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_HELP, _L("Possible values: \n earth \n moon \n jupiter \n A random number (use negative)"), "script_go.png");
 
 			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_HELP, _L("/setwaterlevel <real> - changes water's level"), "script_go.png");
@@ -275,30 +274,42 @@ void Console::eventCommandAccept(MyGUI::Edit* _sender)
 			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_TITLE, _L("Tips:"), "help.png");
 			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_HELP, _L("- use Arrow Up/Down Keys in the InputBox to reuse old messages"), "information.png");
 			return;
-		} else if (args[0] == "/setgravity")
+		} else if (args[0] == "/gravity")
 		{
 			float gValue;
-			if (args[1] == "earth")
-				gValue = -9.81;
-			else if (args[1] == "moon")
-				gValue = -1.6;
-			else if (args[1] == "jupiter")
-				gValue = -50;
-			else
-				gValue = boost::lexical_cast<float>(args[1].c_str());
+
+			if (args.size() > 1)
+			{
+				if (args[1] == "earth")
+					gValue = -9.81;
+				else if (args[1] == "moon")
+					gValue = -1.6;
+				else if (args[1] == "jupiter")
+					gValue = -50;
+				else
+					gValue = boost::lexical_cast<float>(args[1].c_str());
+			} else
+			{
+				putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_SYSTEM_REPLY, _L("Current gravity is: ") + StringConverter::toString(gEnv->terrainManager->getGravity()), "information.png");
+				return;
+			}
 
 			gEnv->terrainManager->setGravity(gValue);
 			putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_SYSTEM_REPLY, _L("Gravity set to: ") + StringConverter::toString(gValue), "information.png");
-			gValue = NULL;
 			return;
 		} else if (args[0] == "/setwaterlevel")
 		{
-			if (gEnv->terrainManager && gEnv->terrainManager->getWater())
+			if (gEnv->terrainManager && gEnv->terrainManager->getWater() && args.size() > 1)
 			{
 				IWater* water = gEnv->terrainManager->getWater();
 				water->setCamera(gEnv->mainCamera);
 				water->setHeight(boost::lexical_cast<float>(args[1].c_str()));
 				water->update();
+				putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_SYSTEM_REPLY, _L("Water level set to: ") + StringConverter::toString(water->getHeight()), "information.png");
+			}
+			else
+			{
+				putMessage(CONSOLE_MSGTYPE_INFO, CONSOLE_SYSTEM_ERROR, _L("Please enter a correct value. "), "information.png");
 			}
 			return;
 		}

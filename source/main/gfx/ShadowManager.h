@@ -18,12 +18,35 @@ You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 // created by thomas{AT}thomasfischer{DOT}biz, 5th of July 2010
+
+#pragma once
 #ifndef __ShadowManager_H_
 #define __ShadowManager_H_
 
+#include <OgreTerrain.h>
+#include <OgreShadowCameraSetupPSSM.h>
+#include <OgreTerrainMaterialGeneratorA.h>
+
 #include "RoRPrerequisites.h"
 
-#include "OgreTerrain.h"
+#include "OgreTerrainPSSMMaterialGenerator.h"
+
+
+enum {
+	SHADOWS_NONE,
+	SHADOWS_TEXTURE,
+	SHADOWS_PSSM
+};
+
+//Store datas using structs
+struct PSSM_Shadows_Data
+{
+	Ogre::ShadowCameraSetupPtr mPSSMSetup;
+	bool mDepthShadows;
+	int ShadowsTextureNum;
+	int Quality;
+	float lambda;
+};
 
 class ShadowManager : public ZeroedMemoryAllocator
 {
@@ -32,16 +55,27 @@ public:
 	ShadowManager();
 	~ShadowManager();
 
-	int changeShadowTechnique(Ogre::ShadowTechnique tech);
 	void loadConfiguration();
 
-	void updatePSSM(Ogre::Terrain* terrain = 0);
+	void updatePSSM();
+
+	void updateTerrainMaterial(Ogre::TerrainPSSMMaterialGenerator::SM2Profile* matProfile);
+
+	int getShadowsType() { return ShadowsType; }
+
 protected:
 
-	Ogre::ShadowCameraSetupPtr mPSSMSetup;
-	bool mDepthShadows;
+	void processTextureShadows();
 
-	void setMaterialSplitPoints(Ogre::String materialName, Ogre::Vector4 &splitPoints);
+	void processPSSM();
+	void setManagedMaterialSplitPoints(Ogre::PSSMShadowCameraSetup::SplitPointList splitPointList);
+
+	int updateShadowTechnique();
+
+	int ShadowsType;
+
+	PSSM_Shadows_Data PSSM_Shadows;
 };
+
 
 #endif // __ShadowManager_H_

@@ -17,13 +17,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __FlexAirfoil_H__
 #define __FlexAirfoil_H__
 
+#include <Ogre.h>
+
 #include "RoRPrerequisites.h"
 #include "BeamData.h" // For MAX_AEROENGINES
-
-#include "Ogre.h"
 
 class FlexAirfoil : public ZeroedMemoryAllocator
 {

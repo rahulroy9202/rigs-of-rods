@@ -90,11 +90,26 @@ Engoption::Engoption():
 	min_idle_mixture(0.f) /* This is a default */
 {}
 
+Engturbo::Engturbo() :
+tinertiaFactor(1),
+nturbos(1),
+param1(9999), //used for default values
+param2(9999),
+param3(9999),
+param4(9999),
+param5(9999),
+param6(9999), 
+param7(9999),
+param8(9999),
+param9(9999),
+param10(9999),
+param11(9999)
+{}
+
 Fusedrag::Fusedrag():
 	autocalc(false),
 	approximate_width(0),
-	area_coefficient(0),
-	_area_coefficient_set(false),
+	area_coefficient(1.f),  // Default
 	airfoil_name("NACA0009.afl")
 {}
 
@@ -178,20 +193,16 @@ TractionControl::TractionControl():
 {}
 
 Trigger::Trigger():
-	shortbound_trigger_key(0),
-	longbound_trigger_key(0),
+	shortbound_trigger_action(0),
+	longbound_trigger_action(0),
 	contraction_trigger_limit(0),
 	expansion_trigger_limit(0),
 	options(0),
 	boundary_timer(1.f), /* Default */
-	_engine_trigger_motor_index(0),
-	_engine_trigger_function(ENGINE_TRIGGER_FUNCTION_INVALID),
 	detacher_group(0)
 {}
 
 VideoCamera::VideoCamera():
-	_alt_reference_node_set(false),
-	_alt_orientation_node_set(false),
 	offset(Ogre::Vector3::ZERO),
 	rotation(Ogre::Vector3::ZERO),
 	field_of_view(0),
@@ -260,6 +271,8 @@ const char * File::SectionToString(File::Section section)
 			return "engine";
 		case (File::SECTION_ENGOPTION):
 			return "engoption";
+		case (File::SECTION_ENGTURBO) :
+			return "engturbo";
 		case (File::SECTION_EXHAUSTS):
 			return "exhausts";
 		case (File::SECTION_FIXES):
@@ -330,6 +343,8 @@ const char * File::SectionToString(File::Section section)
 			return "soundsources2";
 		case (File::SECTION_SLOPE_BRAKE):
 			return "SlopeBrake";
+        case (File::SECTION_SUBMESH):
+			return "submesh";
 		case (File::SECTION_TIES):
 			return "ties";
 		case (File::SECTION_TORQUE_CURVE):
@@ -401,6 +416,8 @@ const char * File::KeywordToString(File::Keyword keyword)
 			return "beams";
 		case (File::KEYWORD_BRAKES):
 			return "brakes";
+		case (File::KEYWORD_CAB):
+			return "submesh >> cab";
 		case (File::KEYWORD_CAMERAS):
 			return "cameras";
 		case (File::KEYWORD_CAMERARAIL):
@@ -417,12 +434,20 @@ const char * File::KeywordToString(File::Keyword keyword)
 			return "contacters";
 		case (File::KEYWORD_CRUISECONTROL):
 			return "cruisecontrol";
+        case (File::KEYWORD_DESCRIPTION):
+			return "description";
 		case (File::KEYWORD_ENGINE):
 			return "engine";
 		case (File::KEYWORD_ENGOPTION):
 			return "engoption";
+		case (File::KEYWORD_ENGTURBO) :
+			return "engturbo";
 		case (File::KEYWORD_EXHAUSTS):
 			return "exhausts";
+        case (File::KEYWORD_FILEINFO):
+			return "fileinfo";
+        case (File::KEYWORD_FILEFORMATVERSION):
+			return "fileformatversion";
 		case (File::KEYWORD_FIXES):
 			return "fixes";
 		case (File::KEYWORD_FLARES):
@@ -456,7 +481,7 @@ const char * File::KeywordToString(File::Keyword keyword)
 		case (File::KEYWORD_MINIMASS):
 			return "minimass";
 		case (File::KEYWORD_NODES):
-			return "nodecollision";
+			return "nodes";
 		case (File::KEYWORD_NODES2):
 			return "nodes2";
 		case (File::KEYWORD_PARTICLES):
@@ -489,6 +514,10 @@ const char * File::KeywordToString(File::Keyword keyword)
 			return "soundsources";
 		case (File::KEYWORD_SOUNDSOURCES2):
 			return "soundsources2";
+		case (File::KEYWORD_SUBMESH) :
+			return "submesh";
+		case (File::KEYWORD_TEXCOORDS):
+			return "submesh >> texcoords";
 		case (File::KEYWORD_TIES):
 			return "ties";
 		case (File::KEYWORD_TORQUECURVE):
@@ -584,6 +613,24 @@ File::File():
 {
 	authors.reserve(10);	
 	description.reserve(20);
+}
+
+bool File::HasFixes()
+{
+    if (root_module->fixes.size() != 0)
+    {
+        return true;
+    }
+    auto end  = modules.end();
+    auto itor = modules.begin();
+    for (; itor != end; ++itor)
+    {
+        if (itor->second->fixes.size() != 0)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 } /* namespace RigDef */

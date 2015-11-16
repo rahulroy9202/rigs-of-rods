@@ -17,11 +17,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __DIFFERENTIALS_H_
 #define __DIFFERENTIALS_H_
 
+#include <OgrePrerequisites.h>
+
 #include "RoRPrerequisites.h"
-#include "OgrePrerequisites.h"
 
 #define MAX_DIFFS 3
 struct differential_data_t

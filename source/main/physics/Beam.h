@@ -20,17 +20,18 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include <OgrePrerequisites.h>
+#include <OgreTimer.h>
+#include <Overlay/OgreOverlayElement.h>
+#include <vector>
+
 #include "RoRPrerequisites.h"
-#include "OgrePrerequisites.h"
+#include "PerVehicleCameraContext.h"
 #include "RigDef_Prerequisites.h"
 
 #include "BeamData.h"
 #include "IThreadTask.h"
 #include "Streamable.h"
-
-#include <OgreTimer.h>
-#include <OgreOverlayElement.h>
-#include <vector>
 
 /** 
 * Represents an entire rig (any vehicle type)
@@ -64,12 +65,14 @@ public:
 	* @param ismachine (see BeamData.h)
 	* @param truckconfig Networking related.
 	* @param preloaded_with_terrain Is this rig being pre-loaded along with terrain?
+    * @param cache_entry_number Needed for flexbody caching. Pass -1 if unavailable (flexbody caching will be disabled)
 	*/
 	Beam( 
 		  int tnum
 		, Ogre::Vector3 pos
 		, Ogre::Quaternion rot
 		, const char* fname
+        , RoR::RigLoadingProfiler* rig_loading_profiler
 		, bool networked = false
 		, bool networking = false
 		, collision_box_t *spawnbox = nullptr
@@ -78,6 +81,7 @@ public:
 		, Skin *skin = nullptr
 		, bool freeposition = false
 		, bool preloaded_with_terrain = false
+        , int cache_entry_number = -1
 		);
 
 	/**
@@ -97,6 +101,9 @@ public:
 	void resetAngle(float rot);
 	void resetPosition(float px, float pz, bool setInitPosition, float miny);
 	void resetPosition(float px, float pz, bool setInitPosition);
+
+	Ogre::Vector3 getVehiclePosition();
+
 
 	/**
 	* Moves vehicle.
@@ -119,12 +126,14 @@ public:
 	* Spawns vehicle.
 	*/
 	bool LoadTruck(
+        RoR::RigLoadingProfiler* rig_loading_profiler,
 		Ogre::String const & file_name, 
 		Ogre::SceneNode *parent_scene_node, 
 		Ogre::Vector3 const & spawn_position,
 		Ogre::Quaternion & spawn_rotation,
 		collision_box_t *spawn_box,
-		bool preloaded_with_terrain = false
+		bool preloaded_with_terrain = false,
+        int cache_entry_number = -1
 	);
 
 	/**
@@ -209,7 +218,9 @@ public:
 	* Creates or updates skidmarks. No side effects.
 	*/
 	void updateSkidmarks();
-	void updateAI(float dt);
+
+	bool navigateTo(Ogre::Vector3 &in);
+
 
 	/**
 	* Prepares vehicle for in-cabin camera use.
@@ -460,8 +471,8 @@ public:
 	int getLowestNode();
 	void preMapLabelRenderUpdate(bool mode, float cheight=0);
 	
-	float tdt;
-	float ttdt;
+	float global_dt;
+	float oldframe_global_dt;
 	bool simulated;
 	int airbrakeval;
 	Ogre::Vector3 cameranodeacc;
@@ -498,7 +509,9 @@ public:
 	bool isTied();
 	bool isLocked();
 
-	Ogre::SceneNode *getSceneNode() { return beamsRoot; }
+	// Inline getters
+	inline Ogre::SceneNode*                 getSceneNode()            { return beamsRoot; }
+	inline RoR::PerVehicleCameraContext*    GetCameraContext()        { return &m_camera_context; }
 
 #ifdef USE_MYGUI
 	DashBoardManager *dash;
@@ -635,6 +648,8 @@ protected:
 	float stabsleep;
 	Replay *replay;
 	PositionStorage *posStorage;
+
+	RoR::PerVehicleCameraContext m_camera_context;
 
 	bool cparticle_mode;
 	Beam** ttrucks;

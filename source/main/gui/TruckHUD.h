@@ -17,10 +17,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __TruckHUD_H_
 #define __TruckHUD_H_
 
 #include "RoRPrerequisites.h"
+
+#include <OgreOverlay.h>
+#include <OgreOverlayElement.h>
 
 class TruckHUD : public ZeroedMemoryAllocator
 {

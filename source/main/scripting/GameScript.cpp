@@ -19,6 +19,16 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "GameScript.h"
 
+#ifdef USE_CURL
+#define CURL_STATICLIB
+#include <stdio.h>
+#include <curl/curl.h>
+//#include <curl/types.h>
+#include <curl/easy.h>
+#endif //USE_CURL
+
+#include "OgreSubsystem.h"
+
 // AS addons start
 #include "contextmgr/contextmgr.h"
 #include "scriptany/scriptany.h"
@@ -28,14 +38,6 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "scriptstdstring/scriptstdstring.h"
 #include "scriptstring/scriptstring.h"
 // AS addons end
-
-#ifdef USE_CURL
-#define CURL_STATICLIB
-#include <stdio.h>
-#include <curl/curl.h>
-//#include <curl/types.h>
-#include <curl/easy.h>
-#endif //USE_CURL
 
 #include "Application.h"
 #include "Beam.h"
@@ -47,7 +49,6 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "Language.h"
 #include "MainThread.h"
 #include "Network.h"
-#include "OgreSubsystem.h"
 #include "RoRFrameListener.h"
 #include "RoRVersion.h"
 #include "Settings.h"
@@ -75,6 +76,16 @@ GameScript::~GameScript()
 void GameScript::log(const String &msg)
 {
 	SLOG(msg);
+}
+
+void GameScript::activateAllVehicles()
+{
+	BeamFactory::getSingleton().activateAllTrucks();
+}
+
+void GameScript::setTrucksForcedActive(bool forceActive)
+{
+	BeamFactory::getSingleton().setTrucksForcedActive(forceActive);
 }
 
 double GameScript::getTime()
@@ -653,8 +664,6 @@ int GameScript::useOnlineAPIDirectly(OnlineAPIParams_t params)
 	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "User_Language", CURLFORM_COPYCONTENTS, SSETTING("Language", "English").c_str(), CURLFORM_END);
 	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "User_Token", CURLFORM_COPYCONTENTS, SSETTING("User Token Hash", "-").c_str(), CURLFORM_END);
 	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "RoR_VersionString", CURLFORM_COPYCONTENTS, ROR_VERSION_STRING, CURLFORM_END);
-	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "RoR_VersionSVN", CURLFORM_COPYCONTENTS, SVN_REVISION, CURLFORM_END);
-	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "RoR_VersionSVNID", CURLFORM_COPYCONTENTS, SVN_ID, CURLFORM_END);
 	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "RoR_ProtocolVersion", CURLFORM_COPYCONTENTS, RORNET_VERSION, CURLFORM_END);
 	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "RoR_BinaryHash", CURLFORM_COPYCONTENTS, SSETTING("BinaryHash", "-").c_str(), CURLFORM_END);
 	curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "RoR_GUID", CURLFORM_COPYCONTENTS, SSETTING("GUID", "-").c_str(), CURLFORM_END);
@@ -796,7 +805,7 @@ int GameScript::useOnlineAPI(const String &apiquery, const AngelScript::CScriptD
 #ifdef USE_MYGUI
 	Console *con = RoR::Application::GetConsole();
 	if (con) con->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE, _L("using Online API..."), "information.png", 2000);
-	RoR::Application::GetGuiManager()->PushNotification("Notice:", _L("using Online API...") + TOSTRING(""));
+	RoR::Application::GetGuiManager()->PushNotification("Notice:", _L("using Online API..."));
 #endif // USE_MYGUI
 
 	// fix the String objects in the dict

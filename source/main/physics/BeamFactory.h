@@ -20,12 +20,12 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 
 // created by Thomas Fischer thomas{AT}thomasfischer{DOT}biz, 24th of August 2009
 
+#pragma once
 #ifndef __BeamFactory_H_
 #define __BeamFactory_H_
 
 #include "RoRPrerequisites.h"
 
-#include "RigDef_Parser.h"
 #include "Beam.h"
 #include "StreamableFactory.h"
 #include "TwoDReplay.h"
@@ -50,10 +50,14 @@ public:
 	*/
 	Beam *createLocal(int slotid) { return 0; }
 
-	Beam *createLocal(
+    /**
+    * @param cache_entry_number Needed for flexbody caching. Pass -1 if unavailable (flexbody caching will be disabled)
+    */
+	Beam* CreateLocalRigInstance(
 		Ogre::Vector3 pos, 
 		Ogre::Quaternion rot, 
-		Ogre::String fname, 
+		Ogre::String fname,
+        int cache_entry_number = -1, 
 		collision_box_t *spawnbox = NULL, 
 		bool ismachine = false, 
 		const std::vector<Ogre::String> *truckconfig = nullptr, 
@@ -114,7 +118,6 @@ public:
 	* TIGHT-LOOP; Logic: display, particles, sound; 
 	*/
 	void updateVisual(float dt);
-	void updateAI(float dt);
 
 	inline unsigned long getPhysFrame() { return physFrame; };
 
@@ -159,6 +162,12 @@ public:
 	pthread_t worker_thread;
 
 	ThreadPool *beamThreadPool;
+	
+#ifdef USE_ANGELSCRIPT
+	// we have to add this to be able to use the class as reference inside scripts
+	void addRef(){};
+	void release(){};
+#endif
 
 protected:
 	

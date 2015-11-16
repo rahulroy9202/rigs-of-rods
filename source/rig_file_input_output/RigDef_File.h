@@ -42,6 +42,8 @@
 
 #include "BitFlags.h"
 
+#include "RigDef_Node.h"
+
 #include <list>
 #include <vector>
 #include <boost/shared_ptr.hpp>
@@ -152,6 +154,11 @@ struct BeamDefaults
 		return breaking_threshold_constant * scale.breaking_threshold_constant;
 	}
 
+    inline float GetScaledDeformThreshold() const
+    {
+        return deformation_threshold_constant * scale.deformation_threshold_constant;
+    }
+
 	float springiness;
 	float damping_constant;
 	float deformation_threshold_constant;
@@ -169,183 +176,7 @@ struct BeamDefaults
 /* Sections NODES, NODES_2
 /* -------------------------------------------------------------------------- */
 
-/** Nodes and Nodes2 are unified in this parser.
-*/
-struct Node
-{
-	/** Abstract node ID: can be numeric or string identifier.
-	*/
-	class Id
-	{
 
-	public:
-
-		struct Hasher: public std::hash<Id*>
-		{
-			size_t operator()(Id const & id) const
-			{
-				// Only one member has a non-zero value at any time.
-				// FIXME: Not an ideal solution
-				std::hash<unsigned int> UintHasher;
-				std::hash<Ogre::String> StringHasher;
-				return UintHasher(id.m_id_num) + StringHasher(id.m_id_str);
-			}
-		};
-
-		Id():
-			m_id_num(INVALID_ID_VALUE)
-		{}
-
-		Id(unsigned int id_num):
-			m_id_num(id_num)
-		{}
-
-		Id(Ogre::String const & id_str):
-			m_id_num(0),
-			m_id_str(id_str)
-		{}
-
-		static const unsigned int INVALID_ID_VALUE = 0xFFFFFFFF;
-
-		bool IsValid()
-		{
-			return (m_id_num != INVALID_ID_VALUE);
-		}
-
-		void Invalidate()
-		{
-			SetNum(INVALID_ID_VALUE);
-		}
-
-		void SetNum(unsigned int id_num)
-		{
-			m_id_num = id_num;
-			m_id_str.clear();
-		}
-
-		void SetStr(Ogre::String const & id_str)
-		{
-			m_id_str = id_str;
-			m_id_num = 0;
-		}
-
-		Ogre::String const & Str()
-		{
-			return m_id_str;
-		}
-
-		unsigned int Num()
-		{
-			return m_id_num;
-		}
-
-		bool Compare(Id const & rhs) const
-		{
-			if (m_id_str.empty() && rhs.m_id_str.empty())
-			{
-				return m_id_num == rhs.m_id_num;
-			}
-			else
-			{
-				return m_id_str == rhs.m_id_str;
-			}
-		}
-
-		bool operator!=(Id const & rhs)
-		{
-			return ! Compare(rhs);
-		}
-
-		bool operator==(Id const & rhs)
-		{
-			return Compare(rhs);
-		}
-
-		bool operator==(Id const & rhs) const
-		{
-			return Compare(rhs);
-		}
-
-		Ogre::String ToString() const
-		{
-			if (! m_id_str.empty())
-			{
-				return m_id_str;
-			}
-			else
-			{
-				return Ogre::StringConverter::toString(m_id_num);
-			}
-		}
-
-	private:
-
-		unsigned int m_id_num;
-		Ogre::String m_id_str;
-	};
-
-	struct Range
-	{
-		Range(Node::Id start, Node::Id end):
-			start(start),
-			end(end)
-		{}
-
-		Range(Node::Id single):
-			start(single),
-			end(single)
-		{}
-
-		Range(unsigned int single_number):
-			start(Node::Id(single_number)),
-			end(Node::Id(single_number))
-		{}
-
-		bool IsRange()
-		{
-			return start != end;
-		}
-
-		void SetSingle(Node::Id const & node)
-		{
-			start = node;
-			end = node;
-		}
-
-		Node::Id start;
-		Node::Id end;
-	};
-
-	Node():
-		position(Ogre::Vector3::ZERO),
-		options(0),
-		load_weight_override(0),
-		_has_load_weight_override(false),
-		detacher_group(0) /* Global detacher group */
-	{}
-
-	BITMASK_PROPERTY( options,  1, OPTION_n_MOUSE_GRAB        , HasFlag_n, SetFlag_n)
-	BITMASK_PROPERTY( options,  2, OPTION_m_NO_MOUSE_GRAB     , HasFlag_m, SetFlag_m)
-	BITMASK_PROPERTY( options,  3, OPTION_f_NO_SPARKS         , HasFlag_f, SetFlag_f)
-	BITMASK_PROPERTY( options,  4, OPTION_x_EXHAUST_POINT     , HasFlag_x, SetFlag_x)
-	BITMASK_PROPERTY( options,  5, OPTION_y_EXHAUST_DIRECTION , HasFlag_y, SetFlag_y)
-	BITMASK_PROPERTY( options,  6, OPTION_c_NO_GROUND_CONTACT , HasFlag_c, SetFlag_c)
-	BITMASK_PROPERTY( options,  7, OPTION_h_HOOK_POINT        , HasFlag_h, SetFlag_h)
-	BITMASK_PROPERTY( options,  8, OPTION_e_TERRAIN_EDIT_POINT, HasFlag_e, SetFlag_e)
-	BITMASK_PROPERTY( options,  9, OPTION_b_EXTRA_BUOYANCY    , HasFlag_b, SetFlag_b)
-	BITMASK_PROPERTY( options, 10, OPTION_p_NO_PARTICLES      , HasFlag_p, SetFlag_p)
-	BITMASK_PROPERTY( options, 11, OPTION_L_LOG               , HasFlag_L, SetFlag_L)
-	BITMASK_PROPERTY( options, 12, OPTION_l_LOAD_WEIGHT       , HasFlag_l, SetFlag_l)
-
-	Id id;
-	Ogre::Vector3 position;
-	unsigned int options; ///< Bit flags
-	float load_weight_override;
-	bool _has_load_weight_override;
-	boost::shared_ptr<NodeDefaults> node_defaults;
-	boost::shared_ptr<BeamDefaults> beam_defaults; /* Needed for hook */
-	int detacher_group;
-};
 
 /* -------------------------------------------------------------------------- */
 /* Directive SET_DEFAULT_INERTIA
@@ -464,10 +295,10 @@ struct Airbrake
 {
 	Airbrake();
 
-	Node::Id reference_node;
-	Node::Id x_axis_node;
-	Node::Id y_axis_node;
-	Node::Id aditional_node;
+	Node::Ref reference_node;
+	Node::Ref x_axis_node;
+	Node::Ref y_axis_node;
+	Node::Ref aditional_node;
 	Ogre::Vector3 offset;
 	float width;
 	float height;
@@ -510,38 +341,38 @@ struct Animation
 		mode(0)
 	{}
 
-	static const unsigned int SOURCE_AIRSPEED          = BITMASK(1);
-	static const unsigned int SOURCE_VERTICAL_VELOCITY = BITMASK(2);
-	static const unsigned int SOURCE_ALTIMETER_100K    = BITMASK(3);
-	static const unsigned int SOURCE_ALTIMETER_10K     = BITMASK(4);
-	static const unsigned int SOURCE_ALTIMETER_1K      = BITMASK(5);
-	static const unsigned int SOURCE_ANGLE_OF_ATTACK   = BITMASK(6);
-	static const unsigned int SOURCE_FLAP              = BITMASK(7);
-	static const unsigned int SOURCE_AIR_BRAKE         = BITMASK(8);
-	static const unsigned int SOURCE_ROLL              = BITMASK(9);
-	static const unsigned int SOURCE_PITCH             = BITMASK(10);
-	static const unsigned int SOURCE_BRAKES            = BITMASK(11);
-	static const unsigned int SOURCE_ACCEL             = BITMASK(12);
-	static const unsigned int SOURCE_CLUTCH            = BITMASK(13);
-	static const unsigned int SOURCE_SPEEDO            = BITMASK(14);
-	static const unsigned int SOURCE_TACHO             = BITMASK(15);
-	static const unsigned int SOURCE_TURBO             = BITMASK(16);
-	static const unsigned int SOURCE_PARKING           = BITMASK(17);
-	static const unsigned int SOURCE_SHIFT_LEFT_RIGHT  = BITMASK(18);
-	static const unsigned int SOURCE_SHIFT_BACK_FORTH  = BITMASK(19);
-	static const unsigned int SOURCE_SEQUENTIAL_SHIFT  = BITMASK(20);
-	static const unsigned int SOURCE_SHIFTERLIN        = BITMASK(21);
-	static const unsigned int SOURCE_TORQUE            = BITMASK(22);
-	static const unsigned int SOURCE_HEADING           = BITMASK(23);
-	static const unsigned int SOURCE_DIFFLOCK          = BITMASK(24);
-	static const unsigned int SOURCE_BOAT_RUDDER       = BITMASK(25);
-	static const unsigned int SOURCE_BOAT_THROTTLE     = BITMASK(26);
-	static const unsigned int SOURCE_STEERING_WHEEL    = BITMASK(27);
-	static const unsigned int SOURCE_AILERON           = BITMASK(28);
-	static const unsigned int SOURCE_ELEVATOR          = BITMASK(29);
-	static const unsigned int SOURCE_AIR_RUDDER        = BITMASK(30);
-	static const unsigned int SOURCE_PERMANENT         = BITMASK(31);
-	static const unsigned int SOURCE_EVENT             = BITMASK(32); /* Full house32 :) */
+	BITMASK_PROPERTY( source,  1, SOURCE_AIRSPEED          , HasSource_AirSpeed            , SetHasSource_AirSpeed )
+	BITMASK_PROPERTY( source,  2, SOURCE_VERTICAL_VELOCITY , HasSource_VerticalVelocity	   , SetHasSource_VerticalVelocity )
+	BITMASK_PROPERTY( source,  3, SOURCE_ALTIMETER_100K    , HasSource_AltiMeter100k       , SetHasSource_AltiMeter100k )
+	BITMASK_PROPERTY( source,  4, SOURCE_ALTIMETER_10K     , HasSource_AltiMeter10k        , SetHasSource_AltiMeter10k )
+	BITMASK_PROPERTY( source,  5, SOURCE_ALTIMETER_1K      , HasSource_AltiMeter1k         , SetHasSource_AltiMeter1k )
+	BITMASK_PROPERTY( source,  6, SOURCE_ANGLE_OF_ATTACK   , HasSource_AOA                 , SetHasSource_AOA )
+	BITMASK_PROPERTY( source,  7, SOURCE_FLAP              , HasSource_Flap                , SetHasSource_Flap )
+	BITMASK_PROPERTY( source,  8, SOURCE_AIR_BRAKE         , HasSource_AirBrake	           , SetHasSource_AirBrake )
+	BITMASK_PROPERTY( source,  9, SOURCE_ROLL              , HasSource_Roll	               , SetHasSource_Roll )
+	BITMASK_PROPERTY( source, 10, SOURCE_PITCH             , HasSource_Pitch               , SetHasSource_Pitch )
+	BITMASK_PROPERTY( source, 11, SOURCE_BRAKES            , HasSource_Brakes              , SetHasSource_Brakes )
+	BITMASK_PROPERTY( source, 12, SOURCE_ACCEL             , HasSource_Accel               , SetHasSource_Accel )
+	BITMASK_PROPERTY( source, 13, SOURCE_CLUTCH            , HasSource_Clutch              , SetHasSource_Clutch )
+	BITMASK_PROPERTY( source, 14, SOURCE_SPEEDO            , HasSource_Speedo              , SetHasSource_Speedo )
+	BITMASK_PROPERTY( source, 15, SOURCE_TACHO             , HasSource_Tacho               , SetHasSource_Tacho )
+	BITMASK_PROPERTY( source, 16, SOURCE_TURBO             , HasSource_Turbo               , SetHasSource_Turbo )
+	BITMASK_PROPERTY( source, 17, SOURCE_PARKING           , HasSource_ParkingBrake        , SetHasSource_ParkingBrake )
+	BITMASK_PROPERTY( source, 18, SOURCE_SHIFT_LEFT_RIGHT  , HasSource_ManuShiftLeftRight  , SetHasSource_ManuShiftLeftRight )
+	BITMASK_PROPERTY( source, 19, SOURCE_SHIFT_BACK_FORTH  , HasSource_ManuShiftBackForth  , SetHasSource_ManuShiftBackForth )
+	BITMASK_PROPERTY( source, 20, SOURCE_SEQUENTIAL_SHIFT  , HasSource_SeqentialShift      , SetHasSource_SeqentialShift )
+	BITMASK_PROPERTY( source, 21, SOURCE_SHIFTERLIN        , HasSource_ShifterLin          , SetHasSource_ShifterLin )
+	BITMASK_PROPERTY( source, 22, SOURCE_TORQUE            , HasSource_Torque              , SetHasSource_Torque )
+	BITMASK_PROPERTY( source, 23, SOURCE_HEADING           , HasSource_Heading             , SetHasSource_Heading )
+	BITMASK_PROPERTY( source, 24, SOURCE_DIFFLOCK          , HasSource_DiffLock	           , SetHasSource_DiffLock )
+	BITMASK_PROPERTY( source, 25, SOURCE_BOAT_RUDDER       , HasSource_BoatRudder          , SetHasSource_BoatRudder )
+	BITMASK_PROPERTY( source, 26, SOURCE_BOAT_THROTTLE     , HasSource_BoatThrottle        , SetHasSource_BoatThrottle )
+	BITMASK_PROPERTY( source, 27, SOURCE_STEERING_WHEEL    , HasSource_SteeringWheel       , SetHasSource_SteeringWheel )
+	BITMASK_PROPERTY( source, 28, SOURCE_AILERON           , HasSource_Aileron             , SetHasSource_Aileron )
+	BITMASK_PROPERTY( source, 29, SOURCE_ELEVATOR          , HasSource_Elevator	           , SetHasSource_Elevator )
+	BITMASK_PROPERTY( source, 30, SOURCE_AIR_RUDDER        , HasSource_AerialRudder	       , SetHasSource_AerialRudder )
+	BITMASK_PROPERTY( source, 31, SOURCE_PERMANENT         , HasSource_Permanent           , SetHasSource_Permanent )
+	BITMASK_PROPERTY( source, 32, SOURCE_EVENT             , HasSource_Event               , SetHasSource_Event ) // Full house32
 
 	static const unsigned int MODE_ROTATION_X          = BITMASK(1);
 	static const unsigned int MODE_ROTATION_Y          = BITMASK(2);
@@ -580,7 +411,7 @@ struct Axle
 	static const char OPTION_l_LOCKED = 'l';
 	static const char OPTION_s_SPLIT  = 's';
 
-	Node::Id wheels[2][2];
+	Node::Ref wheels[2][2];
 	std::vector<char> options; //!< Order matters!
 };
 
@@ -601,7 +432,7 @@ struct Beam
 	BITMASK_PROPERTY(options, 2, OPTION_r_ROPE     , HasFlag_r_Rope     , SetFlag_r_Rope     );
 	BITMASK_PROPERTY(options, 3, OPTION_s_SUPPORT  , HasFlag_s_Support  , SetFlag_s_Support  );
 
-	Node::Id nodes[2];
+	Node::Ref nodes[2];
 	unsigned int options; ///< Bit flags
 	float extension_break_limit;
 	bool _has_extension_break_limit;
@@ -615,9 +446,9 @@ struct Beam
 
 struct Camera
 {
-	Node::Id center_node;
-	Node::Id back_node;
-	Node::Id left_node;
+	Node::Ref center_node;
+	Node::Ref back_node;
+	Node::Ref left_node;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -631,7 +462,7 @@ struct CameraRail
 		nodes.reserve(25);
 	}
 
-	std::vector<Node::Id> nodes;
+	std::vector<Node::Ref> nodes;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -647,7 +478,7 @@ struct Cinecam
 	{}
 
 	Ogre::Vector3 position;
-	Node::Id nodes[8];
+	Node::Ref nodes[8];
 	float spring;
 	float damping;
 	boost::shared_ptr<BeamDefaults> beam_defaults;
@@ -665,7 +496,7 @@ struct CollisionBox
 		nodes.reserve(25);
 	}
 
-	std::vector<Node::Id> nodes;
+	std::vector<Node::Ref> nodes;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -781,13 +612,37 @@ struct Engoption
 };
 
 /* -------------------------------------------------------------------------- */
+/* Section ENGTURBO
+/* -------------------------------------------------------------------------- */
+ 
+struct Engturbo
+{
+	Engturbo();
+	
+	int version;
+	float tinertiaFactor;
+	int nturbos;
+	float param1;
+	float param2;
+	float param3;
+	float param4;
+	float param5;
+	float param6;
+	float param7;
+	float param8;
+	float param9;
+	float param10;
+	float param11;
+};
+
+/* -------------------------------------------------------------------------- */
 /* Section EXHAUSTS
 /* -------------------------------------------------------------------------- */
 
 struct Exhaust
 {
-	Node::Id reference_node;
-	Node::Id direction_node;
+	Node::Ref reference_node;
+	Node::Ref direction_node;
 	Ogre::String material_name;
 };
 
@@ -811,7 +666,7 @@ struct ExtCamera
 	};
 
 	Mode mode;
-	Node::Id node;
+	Node::Ref node;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -946,11 +801,11 @@ struct BaseWheel
 
 	float width;
 	unsigned int num_rays;
-	Node::Id nodes[2];
-	Node::Id rigidity_node;
+	Node::Ref nodes[2];
+	Node::Ref rigidity_node;
 	Wheels::Braking braking;
 	Wheels::Propulsion propulsion;
-	Node::Id reference_arm_node;
+	Node::Ref reference_arm_node;
 	float mass;
 	boost::shared_ptr<NodeDefaults> node_defaults;
 	boost::shared_ptr<BeamDefaults> beam_defaults;
@@ -1064,12 +919,10 @@ struct MeshWheel2: BaseWheel2
 struct Flare2
 {
 	Flare2():
-		x(0),
-		y(0),
 		offset(0, 0, 1), /* Section 'flares(1)' has offset.z hardcoded to 1 */
 		type(TYPE_f_HEADLIGHT),
 		control_number(-1),
-		blink_delay_milis(500),
+		blink_delay_milis(-2),
 		size(-1)
 	{}
 
@@ -1085,9 +938,9 @@ struct Flare2
 		TYPE_INVALID         = 0xFFFFFFFF
 	};
 
-	Node::Id reference_node;
-	float x;
-	float y;
+	Node::Ref reference_node;
+	Node::Ref node_axis_x;
+    Node::Ref node_axis_y;
 	Ogre::Vector3 offset;
 	Type type;
 	int control_number;
@@ -1106,17 +959,17 @@ struct Flexbody
 		offset(Ogre::Vector3::ZERO),
 		rotation(Ogre::Vector3::ZERO)
 	{
-		forset.reserve(10);
 	}
 
-	Node::Id reference_node;
-	Node::Id x_axis_node;
-	Node::Id y_axis_node;
+	Node::Ref reference_node;
+	Node::Ref x_axis_node;
+	Node::Ref y_axis_node;
 	Ogre::Vector3 offset;
 	Ogre::Vector3 rotation;
 	Ogre::String mesh_name;
 	std::list<Animation> animations;
-	std::vector<Node::Range> forset;
+	std::vector<Node::Range> node_list_to_import; //< Node ranges are disallowed in fileformatversion >=450
+    std::vector<Node::Ref> node_list;
 	CameraSettings camera_settings;
 };
 
@@ -1149,12 +1002,11 @@ struct Fusedrag
 	Fusedrag();
 
 	bool autocalc;
-	Node::Id front_node;
-	Node::Id rear_node;
+	Node::Ref front_node;
+	Node::Ref rear_node;
 	float approximate_width;
 	Ogre::String airfoil_name;
 	float area_coefficient;
-	bool _area_coefficient_set;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1171,7 +1023,7 @@ struct Hook
 	BITMASK_PROPERTY( flags, 4, FLAG_NO_ROPE    , HasOptionNoRope,    SetHasOptionNoRope    )
 	BITMASK_PROPERTY( flags, 5, FLAG_VISIBLE    , HasOptionVisible,   SetHasOptionVisible   )
 
-	Node::Id node;
+	Node::Ref node;
 	unsigned int flags;
 	float option_hook_range;
 	float option_speed_coef;
@@ -1197,7 +1049,7 @@ struct Shock
 	BITMASK_PROPERTY(options, 3, OPTION_R_ACTIVE_RIGHT , HasOption_R_ActiveRight, SetOption_R_ActiveRight)
 	BITMASK_PROPERTY(options, 4, OPTION_m_METRIC       , HasOption_m_Metric,      SetOption_m_Metric) 
 
-	Node::Id nodes[2];
+	Node::Ref nodes[2];
 	float spring_rate;         ///< The 'stiffness' of the shock. The higher the value, the less the shock will move for a given bump. 
 	float damping;             ///< The 'resistance to motion' of the shock. The best value is given by this equation:  2 * sqrt(suspended mass * springness)
 	float short_bound;         ///< Maximum contraction. The shortest length the shock can be, as a proportion of its original length. "0" means the shock will not be able to contract at all, "1" will let it contract all the way to zero length. If the shock tries to shorten more than this value allows, it will become as rigid as a normal beam. 
@@ -1224,7 +1076,7 @@ struct Shock2
 	// Absolute metric values for shortbound/longbound, settings apply without regarding to the original length of the beam.(Use with caution, check ror.log for errors)
 	BITMASK_PROPERTY(options, 4, OPTION_M_ABSOLUTE_METRIC , HasOption_M_AbsoluteMetric, SetOption_M_AbsoluteMetric)  
 
-	Node::Id nodes[2];
+	Node::Ref nodes[2];
 	float spring_in;                  ///< Spring value applied when the shock is compressing.
 	float damp_in;                    ///< Damping value applied when the shock is compressing. 
 	float progress_factor_spring_in;  ///< Progression factor for springin. A value of 0 disables this option. 1...x as multipliers, example:maximum springrate == springrate + (factor*springrate)
@@ -1300,7 +1152,7 @@ struct Hydro
 
 	inline void AddFlag(char flag) { options += flag; }
 
-	Node::Id nodes[2];
+	Node::Ref nodes[2];
 	float lenghtening_factor;
 	std::string options;
 	OptionalInertia inertia;
@@ -1370,7 +1222,7 @@ struct Animator
 	static const unsigned int OPTION_SHORT_LIMIT       = BITMASK(28);
 	static const unsigned int OPTION_LONG_LIMIT        = BITMASK(29);
 
-	Node::Id nodes[2];
+	Node::Ref nodes[2];
 	float lenghtening_factor;
 	unsigned int flags;
 	float short_limit;
@@ -1397,7 +1249,7 @@ struct Command2
 	BITMASK_PROPERTY(options, 6, OPTION_o_PRESS_ONCE_CENTER, HasOption_o_PressOnceCenter, SetOption_o_PressOnceCenter)
 
 	unsigned int _format_version;
-	Node::Id nodes[2];
+	Node::Ref nodes[2];
 	float shorten_rate;
 	float lengthen_rate;
 	float max_contraction;
@@ -1433,9 +1285,9 @@ struct Rotator
 		needs_engine(false) /* Default */
 	{}
 
-	Node::Id axis_nodes[2];
-	Node::Id base_plate_nodes[4];
-	Node::Id rotating_plate_nodes[4];
+	Node::Ref axis_nodes[2];
+	Node::Ref base_plate_nodes[4];
+	Node::Ref rotating_plate_nodes[4];
 
 	float rate;
 	unsigned int spin_left_key;
@@ -1469,43 +1321,109 @@ struct Rotator2: public Rotator
 
 struct Trigger
 {
-	Trigger();
-
-	BITMASK_PROPERTY(options,  1, OPTION_i_INVISIBLE             , HasFlag_i, SetFlag_i )
-	BITMASK_PROPERTY(options,  2, OPTION_c_COMMAND_STYLE         , HasFlag_c, SetFlag_c )
-	BITMASK_PROPERTY(options,  3, OPTION_x_START_OFF             , HasFlag_x, SetFlag_x )
-	BITMASK_PROPERTY(options,  4, OPTION_b_BLOCK_KEYS            , HasFlag_b, SetFlag_b )
-	BITMASK_PROPERTY(options,  5, OPTION_B_BLOCK_TRIGGERS        , HasFlag_B, SetFlag_B )
-	BITMASK_PROPERTY(options,  6, OPTION_A_INV_BLOCK_TRIGGERS    , HasFlag_A, SetFlag_A )
-	BITMASK_PROPERTY(options,  7, OPTION_s_SWITCH_CMD_NUM        , HasFlag_s, SetFlag_s )
-	BITMASK_PROPERTY(options,  8, OPTION_h_UNLOCK_HOOKGROUPS_KEY , HasFlag_h, SetFlag_h )
-	BITMASK_PROPERTY(options,  9, OPTION_H_LOCK_HOOKGROUPS_KEY   , HasFlag_H, SetFlag_H )
-	BITMASK_PROPERTY(options, 10, OPTION_t_CONTINUOUS            , HasFlag_t, SetFlag_t )
-	BITMASK_PROPERTY(options, 11, OPTION_E_ENGINE_TRIGGER        , HasFlag_E, SetFlag_E )
-
-	enum EngineTriggerFunction
+	struct EngineTrigger
 	{
-		ENGINE_TRIGGER_FUNCTION_CLUTCH      = 0,
-		ENGINE_TRIGGER_FUNCTION_BRAKE       = 1,
-		ENGINE_TRIGGER_FUNCTION_ACCELERATOR = 2,
-		ENGINE_TRIGGER_FUNCTION_RPM_CONTROL = 3,
-		ENGINE_TRIGGER_FUNCTION_SHIFT_UP    = 4, ///< Do not mix with OPTION_t_CONTINUOUS
-		ENGINE_TRIGGER_FUNCTION_SHIFT_DOWN  = 5, ///< Do not mix with OPTION_t_CONTINUOUS
+		enum Function
+		{
+			ENGINE_TRIGGER_FUNCTION_CLUTCH      = 0,
+			ENGINE_TRIGGER_FUNCTION_BRAKE       = 1,
+			ENGINE_TRIGGER_FUNCTION_ACCELERATOR = 2,
+			ENGINE_TRIGGER_FUNCTION_RPM_CONTROL = 3,
+			ENGINE_TRIGGER_FUNCTION_SHIFT_UP    = 4, ///< Do not mix with OPTION_t_CONTINUOUS
+			ENGINE_TRIGGER_FUNCTION_SHIFT_DOWN  = 5, ///< Do not mix with OPTION_t_CONTINUOUS
 
-		ENGINE_TRIGGER_FUNCTION_INVALID     = 0xFFFFFFFF
+			ENGINE_TRIGGER_FUNCTION_INVALID     = 0xFFFFFFFF
+		};
+
+		Function function;
+		unsigned int motor_index;
 	};
 
-	Node::Id nodes[2];
+	struct CommandKeyTrigger
+	{
+		unsigned int contraction_trigger_key;
+		unsigned int extension_trigger_key;
+	};
+
+	struct HookToggleTrigger
+	{
+		int contraction_trigger_hookgroup_id;
+		int extension_trigger_hookgroup_id;
+	};
+
+	Trigger();
+
+	BITMASK_PROPERTY(options,  1, OPTION_i_INVISIBLE             , HasFlag_i_Invisible,         SetFlag_i_Invisible         )
+	BITMASK_PROPERTY(options,  2, OPTION_c_COMMAND_STYLE         , HasFlag_c_CommandStyle,      SetFlag_c_CommandStyle      )
+	BITMASK_PROPERTY(options,  3, OPTION_x_START_OFF             , HasFlag_x_StartDisabled,     SetFlag_x_StartDisabled     )
+	BITMASK_PROPERTY(options,  4, OPTION_b_BLOCK_KEYS            , HasFlag_b_KeyBlocker,        SetFlag_b_KeyBlocker        )
+	BITMASK_PROPERTY(options,  5, OPTION_B_BLOCK_TRIGGERS        , HasFlag_B_TriggerBlocker,    SetFlag_B_TriggerBlocker    )
+	BITMASK_PROPERTY(options,  6, OPTION_A_INV_BLOCK_TRIGGERS    , HasFlag_A_InvTriggerBlocker, SetFlag_A_InvTriggerBlocker )
+	BITMASK_PROPERTY(options,  7, OPTION_s_SWITCH_CMD_NUM        , HasFlag_s_CmdNumSwitch,      SetFlag_s_CmdNumSwitch      )
+	BITMASK_PROPERTY(options,  8, OPTION_h_UNLOCK_HOOKGROUPS_KEY , HasFlag_h_UnlocksHookGroup,  SetFlag_h_UnlocksHookGroup  )
+	BITMASK_PROPERTY(options,  9, OPTION_H_LOCK_HOOKGROUPS_KEY   , HasFlag_H_LocksHookGroup,    SetFlag_H_LocksHookGroup    )
+	BITMASK_PROPERTY(options, 10, OPTION_t_CONTINUOUS            , HasFlag_t_Continuous,        SetFlag_t_Continuous        )
+	BITMASK_PROPERTY(options, 11, OPTION_E_ENGINE_TRIGGER        , HasFlag_E_EngineTrigger,     SetFlag_E_EngineTrigger     )
+
+	inline bool IsHookToggleTrigger() { return HasFlag_H_LocksHookGroup() || HasFlag_h_UnlocksHookGroup(); }
+
+	inline bool IsTriggerBlockerAnyType() { return HasFlag_B_TriggerBlocker() || HasFlag_A_InvTriggerBlocker(); }
+
+	inline void SetEngineTrigger(Trigger::EngineTrigger const & trig)
+	{
+		shortbound_trigger_action = (int) trig.function;
+		longbound_trigger_action = (int) trig.motor_index;
+	}
+
+	inline Trigger::EngineTrigger GetEngineTrigger() const
+	{
+		assert(HasFlag_E_EngineTrigger());
+		EngineTrigger trig;
+		trig.function = static_cast<EngineTrigger::Function>(shortbound_trigger_action);
+		trig.motor_index = static_cast<unsigned int>(longbound_trigger_action);
+		return trig;
+	}
+
+	inline void SetCommandKeyTrigger(CommandKeyTrigger const & trig)
+	{
+		shortbound_trigger_action = (int) trig.contraction_trigger_key;
+		longbound_trigger_action = (int) trig.extension_trigger_key;
+	}
+
+	inline CommandKeyTrigger GetCommandKeyTrigger() const
+	{
+		assert(BITMASK_IS_0(options, OPTION_B_BLOCK_TRIGGERS | OPTION_A_INV_BLOCK_TRIGGERS 
+			| OPTION_h_UNLOCK_HOOKGROUPS_KEY | OPTION_H_LOCK_HOOKGROUPS_KEY | OPTION_E_ENGINE_TRIGGER));
+		CommandKeyTrigger out;
+		out.contraction_trigger_key = static_cast<unsigned int>(shortbound_trigger_action);
+		out.extension_trigger_key = static_cast<unsigned int>(longbound_trigger_action);
+		return out;
+	}
+
+	inline void SetHookToggleTrigger(HookToggleTrigger const & trig)
+	{
+		shortbound_trigger_action = trig.contraction_trigger_hookgroup_id;
+		longbound_trigger_action = trig.extension_trigger_hookgroup_id;
+	}
+
+	inline HookToggleTrigger GetHookToggleTrigger() const
+	{
+		assert(HasFlag_h_UnlocksHookGroup() || HasFlag_H_LocksHookGroup());
+		HookToggleTrigger trig;
+		trig.contraction_trigger_hookgroup_id = shortbound_trigger_action;
+		trig.extension_trigger_hookgroup_id = longbound_trigger_action;
+		return trig;
+	}
+
+	Node::Ref nodes[2];
 	float contraction_trigger_limit;
 	float expansion_trigger_limit;
-	unsigned int shortbound_trigger_key;
-	unsigned int longbound_trigger_key;
 	unsigned int options;
 	float boundary_timer;
-	unsigned int _engine_trigger_motor_index;
-	EngineTriggerFunction _engine_trigger_function;
 	boost::shared_ptr<BeamDefaults> beam_defaults;
 	int detacher_group;
+	int shortbound_trigger_action;
+	int longbound_trigger_action;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1524,7 +1442,7 @@ struct Lockgroup
 	static const unsigned int LOCKGROUP_NOLOCK         = 9999;
 
 	unsigned int number;
-	std::vector<Node::Id> nodes;
+	std::vector<Node::Ref> nodes;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1590,7 +1508,7 @@ struct NodeCollision
 		radius(0)
 	{}
 
-	Node::Id node;
+	Node::Ref node;
 	float radius;
 };
 
@@ -1600,8 +1518,8 @@ struct NodeCollision
 
 struct Particle
 {
-	Node::Id emitter_node;
-	Node::Id reference_node;
+	Node::Ref emitter_node;
+	Node::Ref reference_node;
 	Ogre::String particle_system_name;
 };
 
@@ -1617,10 +1535,10 @@ struct Pistonprop
 		pitch(0)
 	{}
 
-	Node::Id reference_node;
-	Node::Id axis_node;
-	Node::Id blade_tip_nodes[4];
-	Node::Id couple_node;
+	Node::Ref reference_node;
+	Node::Ref axis_node;
+	Node::Ref blade_tip_nodes[4];
+	Node::Ref couple_node;
 	bool _couple_node_set;
 	float turbine_power_kW;
 	float pitch;
@@ -1683,9 +1601,9 @@ struct Prop
 		SPECIAL_INVALID = 0xFFFFFFFF
 	};
 
-	Node::Id reference_node;
-	Node::Id x_axis_node;
-	Node::Id y_axis_node;
+	Node::Ref reference_node;
+	Node::Ref x_axis_node;
+	Node::Ref y_axis_node;
 	Ogre::Vector3 offset;
 	Ogre::Vector3 rotation;
 	Ogre::String mesh_name;
@@ -1728,7 +1646,7 @@ struct Ropable
 		return group == -1;
 	}
 
-	Node::Id node;
+	Node::Ref node;
 	int group;
 	bool _has_group_set;
 	bool multilock;
@@ -1747,8 +1665,8 @@ struct Rope
 		detacher_group(0) /* Global detacher group */
 	{}
 
-	Node::Id root_node;
-	Node::Id end_node;
+	Node::Ref root_node;
+	Node::Ref end_node;
 	bool invisible;
 	bool _has_invisible_set;
 	boost::shared_ptr<BeamDefaults> beam_defaults;
@@ -1765,9 +1683,9 @@ struct Screwprop
 		power(0)
 	{}
 
-	Node::Id prop_node;
-	Node::Id back_node;
-	Node::Id top_node;
+	Node::Ref prop_node;
+	Node::Ref back_node;
+	Node::Ref top_node;
 	float power;
 };
 
@@ -1784,7 +1702,7 @@ struct SlideNode
 	BITMASK_PROPERTY( constraint_flags, 3, CONSTRAINT_ATTACH_SELF    , HasConstraint_s_AttachSelf 	 , SetConstraint_s_AttachSelf	 )
 	BITMASK_PROPERTY( constraint_flags, 4, CONSTRAINT_ATTACH_NONE    , HasConstraint_n_AttachNone 	 , SetConstraint_n_AttachNone	 )
 
-	Node::Id slide_node;
+	Node::Ref slide_node;
 	std::vector<Node::Range> rail_node_ranges;
 	float spring_rate;
 	float break_force;
@@ -1803,7 +1721,7 @@ struct SlideNode
 
 struct SoundSource
 {
-	Node::Id node;
+	Node::Ref node;
 	Ogre::String sound_script_name;
 };
 
@@ -1872,7 +1790,7 @@ struct Cab
 	static const unsigned int OPTION_s_BUOYANT_NO_DRAG   = BITMASK(5);
 	static const unsigned int OPTION_r_BUOYANT_ONLY_DRAG = BITMASK(6);
 
-	Node::Id nodes[3];
+	Node::Ref nodes[3];
 	unsigned int options;
 };
 
@@ -1883,7 +1801,7 @@ struct Texcoord
 		v(0)
 	{}
 
-	Node::Id node;
+	Node::Ref node;
 	float u;
 	float v;
 };
@@ -1915,7 +1833,7 @@ struct Tie
 		OPTIONS_INVALID = 0xFFFFFFFF
 	};
 
-	Node::Id root_node;
+	Node::Ref root_node;
 	float max_reach_length;
 	float auto_shorten_rate;
 	float min_length;
@@ -1967,9 +1885,9 @@ struct Turbojet
 		nozzle_length(0)
 	{}
 
-	Node::Id front_node;
-	Node::Id back_node;
-	Node::Id side_node;
+	Node::Ref front_node;
+	Node::Ref back_node;
+	Node::Ref side_node;
 	int is_reversable;
 	float dry_thrust;
 	float wet_thrust;
@@ -1989,12 +1907,12 @@ struct Turboprop2
 		_format_version(2)
 	{}
 
-	Node::Id reference_node;
-	Node::Id axis_node;
-	Node::Id blade_tip_nodes[4];
+	Node::Ref reference_node;
+	Node::Ref axis_node;
+	Node::Ref blade_tip_nodes[4];
 	float turbine_power_kW;
 	Ogre::String airfoil;
-	Node::Id couple_node;
+	Node::Ref couple_node;
 	unsigned int _format_version;
 };
 
@@ -2006,13 +1924,11 @@ struct VideoCamera
 {
 	VideoCamera();
 
-	Node::Id reference_node;
-	Node::Id left_node;
-	Node::Id bottom_node;
-	Node::Id alt_reference_node;
-	bool _alt_reference_node_set;
-	Node::Id alt_orientation_node;
-	bool _alt_orientation_node_set;
+	Node::Ref reference_node;
+	Node::Ref left_node;
+	Node::Ref bottom_node;
+	Node::Ref alt_reference_node;
+	Node::Ref alt_orientation_node;
 	Ogre::Vector3 offset;
 	Ogre::Vector3 rotation;
 	float field_of_view;
@@ -2056,7 +1972,7 @@ struct Wing
 		CONTROL_INVALID                 = 0xFFFFFFFF
 	};
 
-	Node::Id nodes[8];
+	Node::Ref nodes[8];
 	float tex_coords[8];
 	Control control_surface;
 	float chord_point;
@@ -2096,18 +2012,17 @@ struct File
 		std::vector<Cinecam>               cinecam;
 		std::vector<Command2>              commands_2; /* sections 'commands' & 'commands2' are unified */
 		boost::shared_ptr<CruiseControl>   cruise_control;
-		std::vector<Node::Id>              contacters;
+		std::vector<Node::Ref>             contacters;
 		boost::shared_ptr<Engine>          engine;
 		boost::shared_ptr<Engoption>       engoption;
+		boost::shared_ptr<Engturbo>        engturbo;
 		std::vector<Exhaust>               exhausts;
 		boost::shared_ptr<ExtCamera>       ext_camera;
-		std::vector<Node::Id>              fixes;
+		std::vector<Node::Ref>              fixes;
 		std::vector<Flare2>                flares_2;
-		std::vector<
-			boost::shared_ptr<Flexbody>
-		>                                  flexbodies;
+		std::vector<boost::shared_ptr<Flexbody>>	flexbodies;
 		std::vector<FlexBodyWheel>         flex_body_wheels;
-		boost::shared_ptr<Fusedrag>        fusedrag;
+		std::vector<Fusedrag>              fusedrag;
 		boost::shared_ptr<Globals>         globals;
 		boost::shared_ptr<GuiSettings>     gui_settings;
 		std::vector<Hook>                  hooks;
@@ -2184,6 +2099,7 @@ struct File
 		KEYWORD_END_SECTION,
 		KEYWORD_ENGINE,
 		KEYWORD_ENGOPTION,
+		KEYWORD_ENGTURBO,
 		KEYWORD_ENVMAP,
 		KEYWORD_EXHAUSTS,
 		KEYWORD_EXTCAMERA,
@@ -2284,6 +2200,7 @@ struct File
 		SECTION_CONTACTERS,
 		SECTION_ENGINE,
 		SECTION_ENGOPTION,
+		SECTION_ENGTURBO,
 		SECTION_EXHAUSTS,
 		SECTION_FIXES,
 		SECTION_FLARES,
@@ -2357,6 +2274,9 @@ struct File
 	static const char * SectionToString(Section section);
 
 	static const char * KeywordToString(Keyword keyword);
+
+    /// Does this file contain "fixes", i.e. nodes attached to terrain?
+    bool HasFixes();
 
 	unsigned int file_format_version;
 	Ogre::String guid;

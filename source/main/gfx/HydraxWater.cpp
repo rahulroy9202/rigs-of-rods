@@ -29,7 +29,9 @@ Based on HydraxWater.cpp/.h
 #include "Settings.h"
 #include "SkyManager.h"
 
-#include <Caelum.h>
+#ifdef USE_CAELUM
+  #include <Caelum.h>
+#endif // USE_CAELUM
 
 using namespace Ogre;
 
@@ -60,7 +62,7 @@ void HydraxWater::InitHydrax()
 {
 	mHydrax = new Hydrax::Hydrax(gEnv->sceneManager, mRenderCamera, RoR::Application::GetOgreSubsystem()->GetViewport());
 
-	waternoise = new Hydrax::Noise::Perlin(Hydrax::Noise::Perlin::Options(waternoise->getOptions().Octaves, 0.5, waternoise->getOptions().Falloff, waternoise->getOptions().Animspeed, waternoise->getOptions().Timemulti));
+	waternoise = new Hydrax::Noise::Perlin();
 	mModule = new Hydrax::Module::ProjectedGrid(// Hydrax parent pointer
 		mHydrax,
 		// Noise module
@@ -75,6 +77,17 @@ void HydraxWater::InitHydrax()
 	mHydrax->setModule(static_cast<Hydrax::Module::Module*>(mModule));
 
 	mHydrax->loadCfg(CurrentConfigFile);
+	
+	// Choose shader language based on renderer (HLSL=0, CG=1, GLSL=2)
+	if(Root::getSingleton().getRenderSystem()->getName() == "Direct3D9 Rendering Subsystem" || Root::getSingleton().getRenderSystem()->getName() == "Direct3D11 Rendering Subsystem")
+	{
+		mHydrax->setShaderMode(static_cast<Hydrax::MaterialManager::ShaderMode>(0));
+	}
+	else
+	{
+		mHydrax->setShaderMode(static_cast<Hydrax::MaterialManager::ShaderMode>(2));
+	}
+
 
 	mHydrax->create();
 	mHydrax->setPosition(Ogre::Vector3(0, waterHeight, 0));
@@ -103,6 +116,7 @@ void HydraxWater::showWave(Vector3 refpos)
 void HydraxWater::update()
 {
 	//This has to change in the next versions when SkyX will be added.
+#ifdef USE_CAELUM
 	if (gEnv->sky) //Caelum way of doing things
 	{
 		Ogre::Vector3 sunPosition = gEnv->mainCamera->getDerivedPosition();
@@ -111,6 +125,7 @@ void HydraxWater::update()
 		mHydrax->setSunColor(Ogre::Vector3(gEnv->sky->getCaelumSys()->getSun()->getBodyColour().r, gEnv->sky->getCaelumSys()->getSun()->getBodyColour().g, gEnv->sky->getCaelumSys()->getSun()->getBodyColour().b));
 	}
 	else
+#endif // USE_CAELUM
 	{
 		mHydrax->setSunPosition(gEnv->sceneManager->getLight("MainLight")->getPosition());
 	}

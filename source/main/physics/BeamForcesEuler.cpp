@@ -42,16 +42,16 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "TerrainManager.h"
 #include "ThreadPool.h"
 
-#define BEAMS_INTER_TRUCK_PARALLEL 0
+#define BEAMS_INTER_TRUCK_PARALLEL 1
 #define BEAMS_INTRA_TRUCK_PARALLEL 0
 #define NODES_INTER_TRUCK_PARALLEL 1
-#define NODES_INTRA_TRUCK_PARALLEL 1
+#define NODES_INTRA_TRUCK_PARALLEL 0
 
 using namespace Ogre;
 
-void Beam::calcForcesEulerCompute(int doUpdate, Real dt, int step, int maxsteps)
+void Beam::calcForcesEulerCompute(int doUpdate_int, Real dt, int step, int maxsteps)
 {
-	float inverted_dt = 1.0f / dt;
+    bool doUpdate = (doUpdate_int != 0);
 	calcTruckEngine(doUpdate, dt);
 
 	// calc
@@ -62,13 +62,11 @@ void Beam::calcForcesEulerCompute(int doUpdate, Real dt, int step, int maxsteps)
 
 	calcMouse();
 
-	calcTurboProp(doUpdate, dt);
 	calcScrewProp(doUpdate);
 	calcWing();
 	calcFuseDrag();
 	calcAirBrakes();
 	calcBuoyance(doUpdate, dt, step, maxsteps);
-
 
 	calcAxles(doUpdate, dt);
 	calcWheels(doUpdate, dt, step, maxsteps);
@@ -80,6 +78,9 @@ void Beam::calcForcesEulerCompute(int doUpdate, Real dt, int step, int maxsteps)
 	// integration, most likely this needs to be done after all the
 	// forces have been calculated other wise, forces might linger
 	calcNodes_(doUpdate, dt, step, maxsteps);
+
+	//This has to be done after the nodes
+	calcTurboProp(doUpdate, dt);
 
 	calcReplay(doUpdate, dt);
 	BES_STOP(BES_CORE_WholeTruckCalc);
@@ -1142,6 +1143,9 @@ void Beam::calcHydros(bool doUpdate, Ogre::Real dt)
 	// TODO wspeed is calculated in calcwheels, need to find a sane way
 	// to get the value to this function 
 	Real wspeed = 0.0;
+
+	wspeed = WheelSpeed; //getWheelSpeed()
+
 	//direction
 	if (hydrodirstate!=0 || hydrodircommand!=0)
 	{
@@ -1875,24 +1879,22 @@ void Beam::calcBeams(int doUpdate, Ogre::Real dt, int step, int maxsteps, int ch
 			Vector3 v = beams[i].p1->Velocity - beams[i].p2->Velocity;
 
 			float slen = -k * (difftoBeamL) - d * v.dotProduct(dis) * inverted_dislen;
-			float len = slen;
 			beams[i].stress = slen;
-			if (len < 0.0f)
-			{
-				len = -len;
-			}
+			float len = std::abs(slen);
+			
 
 			// Fast test for deformation
 			if (len > beams[i].minmaxposnegstress)
 			{
 				if ((beams[i].type==BEAM_NORMAL || beams[i].type==BEAM_INVISIBLE) && beams[i].bounded!=SHOCK1 && k!=0.0f)
 				{
+					Real deform;
 					// Actual deformation tests
 					if (slen > beams[i].maxposstress && difftoBeamL < 0.0f) // compression
 					{
 						increased_accuracy = true;
 						Real yield_length = beams[i].maxposstress / k;
-						Real deform = difftoBeamL + yield_length * (1.0f - beams[i].plastic_coef);
+						deform = difftoBeamL + yield_length * (1.0f - beams[i].plastic_coef);
 						Real Lold = beams[i].L;
 						beams[i].L += deform;
 						beams[i].L = std::max(MIN_BEAM_LENGTH, beams[i].L);
@@ -1909,7 +1911,7 @@ void Beam::calcBeams(int doUpdate, Ogre::Real dt, int step, int maxsteps, int ch
 					{
 						increased_accuracy = true;
 						Real yield_length = beams[i].maxnegstress / k;
-						Real deform = difftoBeamL + yield_length * (1.0f - beams[i].plastic_coef);
+						deform = difftoBeamL + yield_length * (1.0f - beams[i].plastic_coef);
 						Real Lold = beams[i].L;
 						beams[i].L += deform;
 						slen = slen - (slen - beams[i].maxnegstress) * 0.5f;
@@ -1923,10 +1925,10 @@ void Beam::calcBeams(int doUpdate, Ogre::Real dt, int step, int maxsteps, int ch
 #ifdef USE_OPENAL
 					// Sound effect
 					// Sound volume depends on the energy lost due to deformation (which gets converted to sound (and thermal) energy)
-					/*
+					
 					SoundScriptManager::getSingleton().modulate(trucknum, SS_MOD_CREAK, deform*k*(difftoBeamL+deform*0.5f));
 					SoundScriptManager::getSingleton().trigOnce(trucknum, SS_TRIG_CREAK);
-					*/
+					
 #endif  //USE_OPENAL
 					beams[i].minmaxposnegstress = std::min(beams[i].maxposstress, -beams[i].maxnegstress);
 					beams[i].minmaxposnegstress = std::min(beams[i].minmaxposnegstress, beams[i].strength);
@@ -2262,7 +2264,8 @@ void Beam::calcHooks()
 {
 	BES_START(BES_CORE_Hooks);
 	//locks - this is not active in network mode
-	for (std::vector<hook_t>::iterator it=hooks.begin(); it!=hooks.end(); it++)
+	auto hooks_end = hooks.end();
+	for (auto it=hooks.begin(); it != hooks_end; ++it)
 	{
 		if (it->lockNode && it->locked == PRELOCK)
 		{
@@ -2273,8 +2276,10 @@ void Beam::calcHooks()
 				it->beam->p2truck  = it->lockTruck;
 				it->beam->L = (it->hookNode->AbsPosition - it->lockNode->AbsPosition).length();
 				it->beam->disabled = false;
-				if (it->beam->mSceneNode->numAttachedObjects() == 0 && it->visible)
+				if (it->beam->mSceneNode->numAttachedObjects() == 0 && it->is_hook_visible)
+				{
 					it->beam->mSceneNode->attachObject(it->beam->mEntity);
+				}
 			} else
 			{
 				if (it->beam->L < it->beam->commandShort)

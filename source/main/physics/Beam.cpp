@@ -20,6 +20,10 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "Beam.h"
 
+#include <Ogre.h>
+#include <Overlay/OgreOverlayElement.h>
+#include <Overlay/OgreOverlayManager.h>
+
 #include "AirBrake.h"
 #include "Airfoil.h"
 #include "Application.h"
@@ -51,10 +55,10 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "MeshObject.h"
 #include "MovableText.h"
 #include "Network.h"
-#include "Ogre.h"
 #include "PointColDetector.h"
 #include "PositionStorage.h"
 #include "Replay.h"
+#include "RigLoadingProfiler.h"
 #include "RigSpawner.h"
 #include "ScrewProp.h"
 #include "Scripting.h"
@@ -71,6 +75,8 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 
 // DEBUG UTILITY
 //#include "d:\Projects\Git\rigs-of-rods\tools\rig_inspector\RoR_RigInspector.h"
+
+#define LOAD_RIG_PROFILE_CHECKPOINT(ENTRY) rig_loading_profiler->Checkpoint(RoR::RigLoadingProfiler::ENTRY);
 
 #include "RigDef_Parser.h"
 #include "RigDef_Validator.h"
@@ -472,6 +478,11 @@ void Beam::changeOrigin(Vector3 newOrigin)
 }
 
 Vector3 Beam::getPosition()
+{
+	return position; //the position is already in absolute position
+}
+
+Vector3 Beam::getVehiclePosition()
 {
 	return position; //the position is already in absolute position
 }
@@ -880,16 +891,6 @@ void Beam::calc_masses2(Real total, bool reCalc)
 		totalmass += nodes[i].mass;
 	}
 	LOG("TOTAL VEHICLE MASS: " + TOSTRING((int)totalmass) +" kg");
-	//now a special stuff
-	int unst = 0;
-	int st = 0;
-	int wunst = 0;
-	for (int i=0; i<free_beam; i++)
-	{
-		float mass = beams[i].p1->mass;
-		if (beams[i].p2->mass<mass) mass = beams[i].p2->mass;
-	}
-	LOG("Beams status: unstable:"+TOSTRING(unst)+" wheel:"+TOSTRING(wunst)+" normal:"+TOSTRING(free_beam-unst-wunst-st)+" superstable:"+TOSTRING(st));
 
 	BES_GFX_STOP(BES_GFX_calc_masses2);
 }
@@ -1422,7 +1423,7 @@ void Beam::SyncReset()
 void Beam::threadentry()
 {
 	Beam **trucks = ttrucks;
-	dtperstep = tdt / (Real)tsteps;
+	dtperstep = global_dt / (Real)tsteps;
 
 	for (curtstep=0; curtstep<tsteps; curtstep++)
 	{
@@ -1620,8 +1621,8 @@ bool Beam::frameStep(Real dt)
 			BeamFactory::getSingleton()._WorkerWaitForSync();
 		}
 		
-		ttdt = tdt;
-		tdt = dt;
+		oldframe_global_dt = global_dt;
+		global_dt = dt;
 
 		ffforce = affforce / steps;
 		ffhydro = affhydro / steps;
@@ -5214,46 +5215,23 @@ bool Beam::isLocked()
 	return false;
 }
 
-void Beam::updateAI(float dt)
+bool Beam::navigateTo(Vector3 &in)
 {
-	if (driveable != TRUCK ||
-		!gEnv->cameraManager ||
-		!gEnv->cameraManager->hasActiveBehavior() ||
-		!gEnv->cameraManager->gameControlsLocked())
-	{
-		return;
-	}
-
 	// start engine if not running
 	if (engine && !engine->running)
 		engine->start();
 
-	Vector3 TargetPosition = mCamera->getPosition();
-	TargetPosition.y=0;
+	Vector3 TargetPosition = in;
+	TargetPosition.y=0;	//Vector3 > Vector2
 	Quaternion TargetOrientation = Quaternion::ZERO;
 
 	Vector3 mAgentPosition        = position;
+	mAgentPosition.y=0;	//Vector3 > Vector2
 	Quaternion mAgentOrientation  = Quaternion(Radian(getHeadingDirectionAngle()), Vector3::NEGATIVE_UNIT_Y);
 	mAgentOrientation.normalise();
 
-#if 0
-	// this is for debugging purposes
-	static SceneNode *n = 0;
-	if (!n)
-	{
-		Entity *e = gEnv->sceneManager->createEntity("axes.mesh");
-		deletion_Entities.emplace_back(e);
-		n = gEnv->sceneManager->getRootSceneNode()->createChildSceneNode();
-		deletion_sceneNodes.emplace_back(n);
-		n->attachObject(e);
-	}
-	n->setPosition(mAgentPosition);
-	n->setOrientation(mAgentOrientation);
-#endif
-
 	Vector3 mVectorToTarget       = TargetPosition - mAgentPosition; // A-B = B->A
 	mAgentPosition.normalise();
-	mAgentPosition.y=0;
 
 	Vector3 mAgentHeading         = mAgentOrientation * mAgentPosition;
 	Vector3 mTargetHeading        = TargetOrientation * TargetPosition;
@@ -5269,43 +5247,96 @@ void Beam::updateAI(float dt)
 	mSteeringForce.normalise();
 
 	float mYaw    = mSteeringForce.x;
-	//float mPitch  = mSteeringForce.y;
+	float mPitch  = mSteeringForce.z;
 	//float mRoll   = mTargetVO.getRotationTo( mAgentVO ).getRoll().valueRadians();
 
-	/*
-	String txt = "AI:"+TOSTRING(mSteeringForce);
-	RoR::Application::GetOverlayWrapper()->flashMessage(txt, 1, -1);
-	*/
+	if(mPitch > 0)
+    {
+        if (mYaw > 0)
+            mYaw = 1;
+        else
+            mYaw = -1;
+    }
 
 	// actually steer
-	hydrodircommand = mYaw;
+	hydrodircommand = mYaw;//mYaw
 
 	// accelerate / brake
 	float maxvelo = 1;
 
 	maxvelo = std::max<float>(0.2f, 1-fabs(mYaw)) * 50;
 
+	maxvelo += std::max<float>(5, std::min<float>(mVectorToTarget.length(), 50)) - 50;
+
+    if (maxvelo < 0)
+        maxvelo = 0;
+
+	Vector3 dir;
+	float pitch;
+	// pitch
+	if (cameranodepos[0] >= 0 && cameranodepos[0] < MAX_NODES)
+	{
+		dir = nodes[cameranodepos[0]].RelPosition - nodes[cameranodedir[0]].RelPosition;
+		dir.normalise();
+		float angle = asin(dir.dotProduct(Vector3::UNIT_Y));
+		if (angle < -1) angle = -1;
+		if (angle >  1) angle =  1;
+
+		pitch = Radian(angle).valueDegrees();
+	}
+
+	//More power for uphill
+	float power = 80 + pitch;
+	power = power/100;
+
+
+	//String txt = "brakePower: "+TOSTRING(brakePower);//+" @ "+TOSTRING(maxvelo)
+	///RoR::Application::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_SCRIPT, Console::CONSOLE_SYSTEM_NOTICE, txt, "note.png");
+
 
 	if (engine)
 	{
-		if (mVectorToTarget.length() > minCameraRadius * 2.0f)
+		if (mVectorToTarget.length() > 5.0f)
 		{
-			if (WheelSpeed < maxvelo)
-				engine->autoSetAcc(0.8f);
-			else
+			if(pitch < -5 && WheelSpeed > 10)
+			{
+				if (pitch < 0) pitch = -pitch;
+				brake = pitch * brakeforce / 90;
 				engine->autoSetAcc(0);
-			brake = 0;
-		} else
+			}
+			else
+			{
+				if (WheelSpeed < maxvelo - 5)
+				{
+					brake = 0;
+					engine->autoSetAcc(power);
+				}
+				else if (WheelSpeed > maxvelo + 5)
+				{
+					brake = brakeforce / 3;
+					engine->autoSetAcc(0);
+				}
+				else
+				{
+					brake = 0;
+					engine->autoSetAcc(0);
+				}
+			}
+			return false;
+		} 
+		else
 		{
 			engine->autoSetAcc(0);
 			brake = brakeforce;
-
-			if (!(int(gEnv->mrTime * 4.0f) % 2)) 
-			{
-				lightsToggle();
-			}
+			return true;
 		}
 	}
+	else
+	{
+		return true;
+	}
+
+
 }
 
 void Beam::updateDashBoards(float &dt)
@@ -5755,7 +5786,7 @@ void Beam::updateDashBoards(float &dt)
 
 Vector3 Beam::getGForces()
 {
-	if (cameranodepos[0] >= 0 && cameranodepos[0] < MAX_NODES && cameranodedir[0] >= 0 && cameranodedir[0] < MAX_NODES && cameranoderoll[0] >= 0 && cameranoderoll[0] < MAX_NODES)
+	if (cameranodecount > 0 && cameranodepos[0] >= 0 && cameranodepos[0] < MAX_NODES && cameranodedir[0] >= 0 && cameranodedir[0] < MAX_NODES && cameranoderoll[0] >= 0 && cameranoderoll[0] < MAX_NODES)
 	{
 		Vector3 acc      = cameranodeacc / cameranodecount;
 		cameranodeacc    = Vector3::ZERO;
@@ -5925,141 +5956,21 @@ void Beam::onComplete()
 	}
 }
 
-
-std::string ProcessParserMessages(RigDef::Parser & parser, int& num_errors, int& num_warnings, int& num_other)
-{
-	if (parser.GetMessages().size() == 0)
-	{
-		std::string msg(" == Parsing done OK");
-		LOG(msg);
-		return msg;
-	}
-
-	std::stringstream report;
-	report << " == Parsing done, report:" << std::endl <<std::endl;
-
-	std::list<RigDef::Parser::Message>::const_iterator iter = parser.GetMessages().begin();
-	for (; iter != parser.GetMessages().end(); iter++)
-	{
-		switch (iter->type)
-		{
-			case (RigDef::Parser::Message::TYPE_FATAL_ERROR): 
-				report << "#FF3300 FATAL_ERROR #FFFFFF"; 
-				++num_errors;
-				break;
-
-			case (RigDef::Parser::Message::TYPE_ERROR): 
-				report << "#FF3300 ERROR #FFFFFF"; 
-				++num_errors;
-				break;
-
-			case (RigDef::Parser::Message::TYPE_WARNING): 
-				report << "#FFFF00 WARNING #FFFFFF"; 
-				++num_warnings;
-				break;
-
-			default:
-				report << "INFO"; 
-				++num_other;
-				break;
-		}
-		report << " (Section " << RigDef::File::SectionToString(iter->section) << ")" << std::endl;
-		report << "\tLine (" << iter->line_number << "): " << iter->line << std::endl;
-		report << "\tMessage: " << iter->message << std::endl;
-	}
-
-	return report.str();
-}
-
-std::string ProcessSpawnerMessages(RigSpawner & spawner, int& num_errors, int& num_warnings, int& num_other)
-{
-	std::stringstream report;
-
-	std::list<RigSpawner::Message>::const_iterator iter = spawner.GetMessages().begin();
-	for (; iter != spawner.GetMessages().end(); iter++)
-	{
-		switch (iter->type)
-		{
-			case (RigSpawner::Message::TYPE_INTERNAL_ERROR): 
-				report << "#FF3300 INTERNAL ERROR #FFFFFF"; 
-				++num_errors;
-				break;
-
-			case (RigDef::Parser::Message::TYPE_ERROR): 
-				report << "#FF3300 ERROR #FFFFFF"; 
-				++num_errors;
-				break;
-
-			case (RigDef::Parser::Message::TYPE_WARNING): 
-				report << "#FFFF00 WARNING #FFFFFF"; 
-				++num_warnings;
-				break;
-
-			default:
-				report << "INFO"; 
-				++num_other;
-				break;
-		}
-		report << "(Keyword " << RigDef::File::KeywordToString(iter->keyword) << ")" << std::endl;
-		report << "\t" << iter->text << std::endl;
-	}
-	return report.str();
-}
-
-std::string ProcessValidatorMessages(RigDef::Validator & validator, int& num_errors, int& num_warnings, int& num_other)
-{
-	if (validator.GetMessages().empty())
-	{
-		std::string msg(" == Validating done OK");
-		Ogre::LogManager::getSingleton().logMessage(msg);
-		return msg;
-	}
-
-	std::stringstream report;
-	report << " == Validating done, report:" <<std::endl << std::endl;
-
-	std::list<RigDef::Validator::Message>::iterator itor = validator.GetMessages().begin();
-	for( ; itor != validator.GetMessages().end(); itor++)
-	{
-		switch (itor->type)
-		{
-			case (RigDef::Validator::Message::TYPE_FATAL_ERROR):
-				report << "#FF3300 FATAL ERROR #FFFFFF";
-				++num_errors;
-				break;
-			case (RigDef::Validator::Message::TYPE_ERROR):
-				report << "#FF3300 ERROR #FFFFFF";
-				++num_errors;
-				break;
-			case (RigDef::Validator::Message::TYPE_WARNING):
-				report << "#FFFF00 WARNING #FFFFFF";
-				++num_warnings;
-				break;
-			default:
-				report << "INFO";
-				++num_other;
-				break;
-		}
-
-		report << ": " << itor->text << std::endl;
-	}
-
-	return report.str();
-}
-
 Beam::Beam(
 	int truck_number, 
 	Ogre::Vector3 pos, 
 	Ogre::Quaternion rot, 
 	const char* fname, 
-	bool networked, /* = false  */
-	bool networking, /* = false  */ 
+    RoR::RigLoadingProfiler* rig_loading_profiler,
+	bool _networked, /* = false  */
+	bool _networking, /* = false  */ 
 	collision_box_t *spawnbox, /* = nullptr */
 	bool ismachine, /* = false  */ 
 	const std::vector<Ogre::String> *truckconfig, /* = nullptr */
 	Skin *skin, /* = nullptr */
 	bool freeposition, /* = false */
-	bool preloaded_with_terrain /* = false */
+	bool preloaded_with_terrain, /* = false */
+    int cache_entry_number /* = -1 */
 ) :
 
 	  deleting(false)
@@ -6150,17 +6061,16 @@ Beam::Beam(
 	, stabcommand(0)
 	, stabratio(0.0)
 	, stabsleep(0.0)
-	, tdt(0.1)
+	, global_dt(0.1)
 	, thread_index(0)
 	, thread_number(0)
 	, thread_task(THREAD_BEAMFORCESEULER)
 	, totalmass(0)
 	, tsteps(100)
-	, ttdt(0.1)
+	, oldframe_global_dt(0.1)
 	, watercontact(false)
 	, watercontactold(false)
 {
-
 	useSkidmarks = BSETTING("Skidmarks", false);
 	LOG(" ===== LOADING VEHICLE: " + Ogre::String(fname));
 
@@ -6177,12 +6087,14 @@ Beam::Beam(
 	}
 	pthread_mutex_init(&itc_node_access_mutex, NULL);
 
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_CTOR_INITTHREADS);
+
 	/* struct <rig_t> parameters */
 	
 	trucknum = truck_number;
 	freePositioned = freeposition;
 	usedSkin = skin;
-	networking = networking;
+	networking = _networking;
 	memset(truckname, 0, 256);
 	sprintf(truckname, "t%i", truck_number);
 	memset(uniquetruckid, 0, 256);
@@ -6193,7 +6105,7 @@ Beam::Beam(
 		driveable = MACHINE;
 	}
 	enable_wheel2 = true; // since 0.38 enabled wheels2 by default
-	if (networked || networking)
+	if (_networked || networking)
 	{
 		enable_wheel2 = false;
 	}
@@ -6211,10 +6123,12 @@ Beam::Beam(
 	}
 
 	Ogre::SceneNode *beams_parent = gEnv->sceneManager->getRootSceneNode()->createChildSceneNode();
+
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_CTOR_PREPARE_LOADTRUCK);
 	
 	if (strnlen(fname, 200) > 0)
 	{
-		if(! LoadTruck(fname, beams_parent, pos, rot, spawnbox, preloaded_with_terrain))
+		if(! LoadTruck(rig_loading_profiler, fname, beams_parent, pos, rot, spawnbox, preloaded_with_terrain, cache_entry_number))
 		{
 			return;
 		}
@@ -6226,7 +6140,7 @@ Beam::Beam(
 	// setup replay mode
 	bool enablereplay = BSETTING("Replay mode", false);
 
-	if (enablereplay && !networked && !networking)
+	if (enablereplay && !_networked && !networking)
 	{
 		replaylen = ISETTING("Replay length", 10000);
 		replay = new Replay(this, replaylen);
@@ -6282,7 +6196,7 @@ Beam::Beam(
 	CreateSimpleSkeletonMaterial();
 
 	// start network stuff
-	if (networked)
+	if (_networked)
 	{
 		state = NETWORKED;
 		// malloc memory
@@ -6311,18 +6225,20 @@ Beam::Beam(
 	mCamera = gEnv->mainCamera;
 
 	// DEBUG UTILITY
-	//RigInspector::InspectRig(this, "d:\\Projects\\Rigs of Rods\\rig-inspection\\NextStable.log"); 
+	// RigInspector::InspectRig(this, "d:\\Projects\\Rigs of Rods\\rig-inspection\\NextStable.log"); 
 
 	LOG(" ===== DONE LOADING VEHICLE");
 }
 
 bool Beam::LoadTruck(
+    RoR::RigLoadingProfiler* rig_loading_profiler,
 	Ogre::String const & file_name, 
 	Ogre::SceneNode *parent_scene_node, 
 	Ogre::Vector3 const & spawn_position,
 	Ogre::Quaternion & spawn_rotation,
 	collision_box_t *spawn_box,
-	bool preloaded_with_terrain /* = false */
+	bool preloaded_with_terrain, // = false
+    int cache_entry_number // = -1
 )
 {
 	/* add custom include path */
@@ -6357,7 +6273,8 @@ bool Beam::LoadTruck(
 		return false;
 	}
 
-	//this->cacheEntryInfo = RoR::Application::GetCacheSystem()->getResourceInfo(filename);
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_OPENFILE);
+
 	if (ds.isNull() || !ds->isReadable())
 	{
 #ifdef USE_MYGUI
@@ -6383,32 +6300,49 @@ bool Beam::LoadTruck(
 	LOG(" == Parsing vehicle file: " + file_name);
 
 	RigDef::Parser parser;
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_PARSER_CREATE);
 	parser.Prepare();
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_PARSER_PREPARE);
 	while(! ds->eof())
 	{
 		parser.ParseLine(ds->getLine());
 	}
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_PARSER_RUN);
 	parser.Finalize();
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_PARSER_FINALIZE);
 
-	int report_num_errors(0);
-	int report_num_warnings(0);
-	int report_num_other(0);
-	std::string report_text = ProcessParserMessages(parser, report_num_errors, report_num_warnings, report_num_other);
+    int report_num_errors   = parser.GetMessagesNumErrors();
+    int report_num_warnings = parser.GetMessagesNumWarnings();
+    int report_num_other    = parser.GetMessagesNumOther();
+	std::string report_text = parser.ProcessMessagesToString();
 	report_text += "\n\n";
 	LOG(report_text);
 
-	/* VALIDATING */
+    auto* importer = parser.GetSequentialImporter();
+    if (importer->IsEnabled() && BSETTING("RigImporter_PrintMessagesToLog", false))
+    {
+        report_num_errors   += importer->GetMessagesNumErrors();
+        report_num_warnings += importer->GetMessagesNumWarnings();
+        report_num_other    += importer->GetMessagesNumOther();
 
+        std::string importer_report = importer->ProcessMessagesToString();
+        LOG(importer_report);
+        
+        report_text += importer_report + "\n\n";
+    }
+
+	/* VALIDATING */
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_POST_PARSE);
 	LOG(" == Validating vehicle: " + parser.GetFile()->name);
 
 	RigDef::Validator validator;
 	validator.Setup(parser.GetFile());
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_VALIDATOR_INIT);
 
 	// Workaround: Some terrains pre-load truckfiles with special purpose:
 	//     "soundloads" = play sound effect at certain spot
 	//     "fixes"      = structures of N/B fixed to the ground
 	// These files can have no beams. Possible extensions: .load or .fixed
-	// .load observed in: "Northern-Isles" [http://www.rigsofrods.com/repository/view/5315]
 	Ogre::String file_extension = file_name.substr(file_name.find_last_of('.'));
 	Ogre::StringUtil::toLowerCase(file_extension);
 	bool extension_matches = (file_extension == ".load") | (file_extension == ".fixed");
@@ -6417,20 +6351,25 @@ bool Beam::LoadTruck(
 		validator.SetCheckBeams(false);
 	}
 	bool valid = validator.Validate();
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_VALIDATOR_RUN);
 
-	std::string validator_report = ProcessValidatorMessages(validator, report_num_errors, report_num_warnings, report_num_other);
+    report_num_errors   += validator.GetMessagesNumErrors();
+    report_num_warnings += validator.GetMessagesNumWarnings();
+    report_num_other    += validator.GetMessagesNumOther();
+    std::string validator_report = validator.ProcessMessagesToString();
 	LOG(validator_report);
 	report_text += validator_report;
 	report_text += "\n\n";
 	// Continue anyway...
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_POST_VALIDATION);
 
 	/* PROCESSING */
 
 	LOG(" == Spawning vehicle: " + parser.GetFile()->name);
 
 	RigSpawner spawner;
-	spawner.Setup(this, parser.GetFile(), parent_scene_node, spawn_position, spawn_rotation);
-
+	spawner.Setup(this, parser.GetFile(), parent_scene_node, spawn_position, spawn_rotation, cache_entry_number);
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_SPAWNER_SETUP);
 	/* Setup modules */
 	spawner.AddModule(parser.GetFile()->root_module);
 	if (parser.GetFile()->modules.size() > 0) /* The vehicle-selector may return selected modules even for vehicle with no modules defined! Hence this check. */
@@ -6441,19 +6380,41 @@ bool Beam::LoadTruck(
 			spawner.AddModule(*itor);
 		}
 	}
-
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_SPAWNER_ADDMODULES);
 	spawner.SpawnRig();
-	report_text += ProcessSpawnerMessages(spawner, report_num_errors, report_num_warnings, report_num_other);
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_SPAWNER_RUN);
+    report_num_errors   += spawner.GetMessagesNumErrors();
+    report_num_warnings += spawner.GetMessagesNumWarnings();
+    report_num_other    += spawner.GetMessagesNumOther();
+    // Spawner log already printed to RoR.log
+    report_text += spawner.ProcessMessagesToString() + "\n\n";
+
+    // Extra information to RoR.log
+    if (importer->IsEnabled())
+    {
+        if (BSETTING("RigImporter_PrintNodeStatsToLog", false))
+        {
+            LOG(importer->GetNodeStatistics());
+        }
+        if (BSETTING("RigImporter_Debug_TraverseAndLogAllNodes", false))
+        {
+            LOG(importer->IterateAndPrintAllNodes());
+        }
+    }
+
 	RoR::Application::GetGuiManagerInterface()->AddRigLoadingReport(parser.GetFile()->name, report_text, report_num_errors, report_num_warnings, report_num_other);
 	if (report_num_errors != 0)
 	{
-		RoR::Application::GetGuiManagerInterface()->ShowRigSpawnerReportWindow();
+		if (BSETTING("AutoRigSpawnerReport", false))
+		{
+			RoR::Application::GetGuiManagerInterface()->ShowRigSpawnerReportWindow();
+		}
 	}
-
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_SPAWNER_LOG);
 	/* POST-PROCESSING (Old-spawn code from Beam::loadTruck2) */
 
 	/* Place correctly */
-	if (! this->hasfixes)
+    if (! parser.GetFile()->HasFixes())
 	{
 		Ogre::Vector3 vehicle_position = spawn_position;
 
@@ -6489,20 +6450,25 @@ bool Beam::LoadTruck(
 	{
 		resetPosition(spawn_position, true);
 	}
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_FIXES);
 
 	//compute final mass
 	calc_masses2(truckmass);
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_CALC_MASSES);
 	//setup default sounds
 	if (!disable_default_sounds)
 	{
 		//setupDefaultSoundSources();
 		RigSpawner::SetupDefaultSoundSources(this);
 	}
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_SET_DEFAULT_SND_SOURCES);
 
 	//compute node connectivity graph
 	calcNodeConnectivityGraph();
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_CALC_NODE_CONNECT_GRAPH);
 
 	RigSpawner::RecalculateBoundingBoxes(this);
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_RECALC_BOUNDING_BOXES);
 
 	// fix up submesh collision model
 	if (!subMeshGroundModelName.empty())
@@ -6510,6 +6476,7 @@ bool Beam::LoadTruck(
 		submesh_ground_model = gEnv->collisions->getGroundModelByString(subMeshGroundModelName);
 		if (!submesh_ground_model) gEnv->collisions->defaultgm;
 	}
+    
 
 	// print some truck memory stats
 	int mem = 0, memr = 0, tmpmem = 0;
@@ -6546,7 +6513,7 @@ bool Beam::LoadTruck(
 	LOG("BEAM: truck memory used: " + TOSTRING(mem)  + " B (" + TOSTRING(mem/1024)  + " kB)");
 	LOG("BEAM: truck memory allocated: " + TOSTRING(memr)  + " B (" + TOSTRING(memr/1024)  + " kB)");
 
-
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_GROUNDMODEL_AND_STATS);
 #ifdef USE_MYGUI
 	// now load any dashboards
 	if (dash)
@@ -6651,6 +6618,7 @@ bool Beam::LoadTruck(
 		dash->setVisible(false);
 	}
 #endif // USE_MYGUI
+    LOAD_RIG_PROFILE_CHECKPOINT(ENTRY_BEAM_LOADTRUCK_LOAD_DASHBOARDS);
 
 	return true;
 }
@@ -6748,10 +6716,16 @@ void Beam::setCustomLightVisible(int number, bool visible)
 		return;
 	}
 
-	if (flares[netCustomLightArray[number]].snode)
-		flares[netCustomLightArray[number]].controltoggle_status = visible;
-	else
-		LOG("AngelScript: Light ID (" + TOSTRING(number) + ") doesn't exist, ignored...");
+	try
+	{
+		if (flares[netCustomLightArray[number]].snode)
+			flares[netCustomLightArray[number]].controltoggle_status = visible;
+	}
+	catch (Exception ex)
+	{
+	}
+	/*else
+		LOG("AngelScript: Light ID (" + TOSTRING(number) + ") doesn't exist, ignored...");*/
 }
 
 bool Beam::getBeaconMode()

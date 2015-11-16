@@ -17,15 +17,17 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+#pragma once
 #ifndef _Skin_H__
 #define _Skin_H__
 
+#include <OgrePrerequisites.h>
+#include <OgreResource.h>
+#include <OgreTexture.h>
+#include <OgreMaterial.h>
+#include <OgreCommon.h>
+
 #include "RoRPrerequisites.h"
-#include "OgrePrerequisites.h"
-#include "OgreResource.h"
-#include "OgreTexture.h"
-#include "OgreMaterial.h"
-#include "OgreCommon.h"
 
 class Skin : public Ogre::Resource
 {

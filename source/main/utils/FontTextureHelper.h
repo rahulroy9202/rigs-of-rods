@@ -18,12 +18,15 @@ You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "RoRPrerequisites.h"
-#include "Ogre.h"
-#include "OgreFontManager.h"
+#pragma once
 
 #include <iostream>
 #include <fstream>
+
+#include <Ogre.h>
+#include <OgreFontManager.h>
+
+#include "RoRPrerequisites.h"
 
 #ifndef FONT_UNICODE
 # define FONT_UNICODE //highly recommended to be used, otherwise you run into problems with non-ASCII font glyphs

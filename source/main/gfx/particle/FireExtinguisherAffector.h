@@ -17,15 +17,17 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __FireExtinguisherAffector_H__
 #define __FireExtinguisherAffector_H__
 
 #ifdef USE_ANGELSCRIPT
 
-#include "OgreParticleAffector.h"
-#include "OgreVector3.h"
-#include "ExtinguishableFireAffectorFactory.h"
+#include <OgreParticleAffector.h>
+#include <OgreVector3.h>
 
+#include "ExtinguishableFireAffectorFactory.h"
 
 namespace Ogre {
 

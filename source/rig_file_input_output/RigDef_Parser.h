@@ -2,7 +2,7 @@
 	This source file is part of Rigs of Rods
 	Copyright 2005-2012 Pierre-Michel Ricordel
 	Copyright 2007-2012 Thomas Fischer
-	Copyright 2013-2014 Petr Ohlidal
+	Copyright 2013-2015 Petr Ohlidal
 
 	For more information, see http://www.rigsofrods.com/
 
@@ -12,11 +12,11 @@
 
 	Rigs of Rods is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU General Public License for more details.
 
 	You should have received a copy of the GNU General Public License
-	along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
+	along with Rigs of Rods. If not, see <http://www.gnu.org/licenses/>.
 */
 
 /**
@@ -27,7 +27,9 @@
 
 #pragma once
 
+#include "RigDef_Prerequisites.h"
 #include "RigDef_File.h"
+#include "RigDef_SequentialImporter.h"
 
 #include <string>
 #include <boost/regex.hpp>
@@ -73,6 +75,7 @@ namespace RigDef
 		Again, there are exceptions to this rule.
 	
 */
+
 class Parser
 {
 
@@ -119,6 +122,14 @@ public:
 		return m_definition;
 	}
 
+    SequentialImporter* GetSequentialImporter() { return &m_sequential_importer; }
+
+    std::string ProcessMessagesToString();
+
+    int GetMessagesNumErrors()   const { return m_messages_num_errors;   }
+    int GetMessagesNumWarnings() const { return m_messages_num_warnings; }
+    int GetMessagesNumOther()    const { return m_messages_num_other;    }
+
 protected:
 
 /* -------------------------------------------------------------------------- */
@@ -142,6 +153,9 @@ protected:
 	void ParseDirectiveSetManagedMaterialsOptions(Ogre::String const & line);
 
 	void ParseDirectiveSetNodeDefaults(Ogre::String const & line);
+	void ParseDirectiveSetNodeDefaultsUnsafe(Ogre::String const & line);
+	void VerifyAndProcessDirectiveSetNodeDefaults(Ogre::String const & line, float loadweight, float friction, float volume, float surface, unsigned int options);
+	void LogParsedDirectiveSetNodeDefaultsData(Ogre::String const & line, float loadweight, float friction, float volume, float surface, unsigned int options);
 
 /* -------------------------------------------------------------------------- */
 /*	Section parsers                                                           */
@@ -162,6 +176,7 @@ protected:
 	void ParseBrakes(Ogre::String line);
 
 	void ParseCameras(Ogre::String const & line);
+	void ParseCamerasUnsafe(Ogre::String const & line);
 
 	void ParseCameraRails(Ogre::String const & line);
 
@@ -181,6 +196,8 @@ protected:
 
 	void ParseEngoption(Ogre::String const & line);
 
+	void ParseEngturbo(Ogre::String const & line);
+
 	void ParseExhaust(Ogre::String const & line);
 
 	void ParseExtCamera(Ogre::String const & line);
@@ -197,7 +214,10 @@ protected:
 
 	void ParseFlexbody(Ogre::String const & line);
 
-	void ParseFlexBodyWheels(Ogre::String const & line);
+	// FlexBodyWheels
+	void ParseFlexBodyWheel(Ogre::String const & line);
+	void ParseFlexBodyWheelUnsafe(Ogre::String const & line);
+	void VerifyAndProcessFlexBodyWheel(Ogre::String const & line, FlexBodyWheel& def, int braking, int propulsion, char side);
 
 	void ParseFusedrag(Ogre::String const & line);
 
@@ -219,9 +239,15 @@ protected:
 
 	void ParseMaterialFlareBindings(Ogre::String const & line);
 
+	// MeshWheels
 	void ParseMeshWheel(Ogre::String const & line);
+	void ParseMeshWheelUnsafe(Ogre::String const & line);
+	void VerifyAndProcessMeshWheel(Ogre::String const & line, MeshWheel& mesh_wheel_def, int braking, int propulsion, char side);
 
-	void ParseMeshWheels2(Ogre::String const & line);
+	// MeshWheels2
+	void ParseMeshWheel2(Ogre::String const & line);
+	void ParseMeshWheel2Unsafe(Ogre::String const & line);
+	void VerifyAndProcessMeshWheel2(Ogre::String const & line, MeshWheel2& mesh_wheel_2_def, int braking, int propulsion, char side);
 
 	void ParseMinimass(Ogre::String const & line);
 
@@ -253,9 +279,17 @@ protected:
 
 	void ParseSetSkeletonSettings(Ogre::String const & line);
 
-	void ParseShocks(Ogre::String const & line);
+	// Shocks
+	void         ParseShock(Ogre::String const & line);
+	void         ParseShockUnsafe(Ogre::String const & line);
+	unsigned int ParseShockOptions(Ogre::String const & line, std::string const & options_str);
+	void         LogParsedShockDataForChecking(Ogre::String const & line, Shock& shock);
 
-	void ParseShocks2(Ogre::String const & line);
+	// Shocks2
+	void         ParseShock2(Ogre::String const & line);
+	void         ParseShock2Unsafe(Ogre::String const & line);
+	unsigned int ParseShock2Options(Ogre::String const & line, std::string const & options_str);
+	void         LogParsedShock2DataForChecking(Ogre::String const & line, Shock2& shock);
 
 	void ParseSlidenodes(Ogre::String const & line);
 
@@ -268,6 +302,7 @@ protected:
 	void ParseSpeedLimiter(Ogre::String const & line);
 
 	void ParseSubmesh(Ogre::String const & line);
+	void ParseSubmeshUnsafe(Ogre::String const & line);
 
 	void ParseSubmeshGroundModel(Ogre::String const & line);
 
@@ -298,11 +333,26 @@ protected:
 /*	Utilities */
 /* -------------------------------------------------------------------------- */
 
+    /** The old, unsafe method of parsing, used in v0.38 + v0.4.0.7
+    * @return -1 on error (error logged). Otherwise, number of arguments
+    */
+    int _ParseArgs(std::string const & line, Ogre::StringVector &args, unsigned min_num_args);
+
+    /** Attempts to parse cab line. Returns true if successful.
+    */
+    bool _TryParseCab(Ogre::String const & line);
+
+	unsigned int _ParseCabOptions(Ogre::String const & options_str);
+
 	void _CheckInvalidTrailingText(Ogre::String const & line, boost::smatch const & results, unsigned int index);
 
 	/** Keyword scan function. 
 	*/
 	File::Keyword IdentifyKeyword(Ogre::String const & line);
+
+    /** Keyword scan utility function. 
+	*/
+    File::Keyword FindKeywordMatch(boost::smatch& search_results);
 
 	/** Adds a message to parser report.
 	*/
@@ -314,13 +364,21 @@ protected:
 
 	/** Nodes and Nodes2 are unified with this parser.
 	*/
-	void _ParseSectionsNodesNodes2(Ogre::String const & line);
+	void _ParseSectionsNodesNodes2(Ogre::String const & line, bool is_version_2);
+
+    /** The old, unsafe method of parsing, used in v0.38 + v0.4.0.7
+	*/
+    void _ParseNodesLegacyMethod(Ogre::String line, bool is_version_2);
+
+    static void _TrimTrailingComments(std::string const & line_in, std::string & line_out);
+
+    void _ImportLegacyFlexbodyForsetLine(Ogre::String const & line);
 
 	/** Commands and Commands2 are unified with this parser.
 	*/
 	void _ParseSectionsCommandsCommands2(Ogre::String const & line, boost::regex const & regex, unsigned int format_version);
 
-	Node::Id _ParseNodeId(std::string const & node_id_str);
+	Node::Ref _ParseNodeRef(std::string const & node_id_str);
 
 	Node::Id _ParseOptionalNodeId(std::string const & node_id_str);
 
@@ -374,14 +432,20 @@ protected:
 	File::Subsection                     m_current_subsection;     ///< Parser state.
 	bool                                 m_in_block_comment;       ///< Parser state.
 	bool                                 m_in_description_section; ///< Parser state.
+    bool                                 m_any_named_node_defined; ///< Parser state.
 	boost::shared_ptr<Submesh>           m_current_submesh;        ///< Parser state.
 	boost::shared_ptr<CameraRail>        m_current_camera_rail;    ///< Parser state.
 	boost::shared_ptr<Flexbody>          m_last_flexbody;
 	unsigned int                         m_num_contiguous_blank_lines; ///< Parser state; Num. blank lines right above the current one
 
+    SequentialImporter                   m_sequential_importer;
+
 	unsigned int                         m_current_line_number; ///< Only for reports. Initialised to 1
 	boost::shared_ptr<RigDef::File>      m_definition;
 	std::list<Message>                   m_messages;
+    int                                  m_messages_num_errors;
+    int                                  m_messages_num_warnings;
+    int                                  m_messages_num_other;
 };
 
 } // namespace RigDef

@@ -26,11 +26,14 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
  * @update  2006 by barraq see nospam@barraquand.com
  */
 
+#pragma once
 #ifndef __include_MovableText_H__
 #define __include_MovableText_H__
 
+#include <Ogre.h>
+#include <OgreFontManager.h>
+
 #include "RoRPrerequisites.h"
-#include "Ogre.h"
 
 namespace Ogre {
 

@@ -60,8 +60,6 @@ bool Validator::Validate()
 
 	valid &= CheckSection(RigDef::File::KEYWORD_GLOBALS, true, true); /* Unique, required */
 
-	valid &= CheckSpecialNodeZero();
-
 	valid &= CheckSection(RigDef::File::KEYWORD_NODES, false, true); /* Required; sections nodes/nodes2 are unified here. */
 
 	if (m_check_beams)
@@ -72,6 +70,8 @@ bool Validator::Validate()
 	valid &= CheckSection(RigDef::File::KEYWORD_ENGINE, true, false); /* Unique */
 
 	valid &= CheckSection(RigDef::File::KEYWORD_ENGOPTION, true, false); /* Unique */
+
+	valid &= CheckSection(RigDef::File::KEYWORD_ENGTURBO, true, false); /* Unique */
 
 	valid &= CheckSection(RigDef::File::KEYWORD_TORQUECURVE, true, false); /* Unique */
 
@@ -112,11 +112,27 @@ void Validator::Setup(boost::shared_ptr<RigDef::File> file)
 	m_selected_modules.push_back(file->root_module);
 	m_messages.clear();
 	m_check_beams = true;
+    m_messages_num_errors = 0;
+    m_messages_num_warnings = 0;
+    m_messages_num_other = 0;
 }
 
 void Validator::AddMessage(Validator::Message::Type type, Ogre::String const & text)
 {
 	m_messages.push_back(Message(type, text));
+    switch (type)
+    {
+    case Message::TYPE_ERROR: 
+    case Message::TYPE_FATAL_ERROR: 
+        ++m_messages_num_errors; 
+        break;
+    case Message::TYPE_WARNING: 
+        ++m_messages_num_warnings; 
+        break;
+    default:
+        ++m_messages_num_other;
+        break;
+    }
 }
 
 bool Validator::CheckSectionSubmeshGroundmodel()
@@ -198,11 +214,14 @@ bool Validator::HasModuleKeyword(boost::shared_ptr<RigDef::File::Module> module,
 		case (File::KEYWORD_ENGOPTION):
 			return (module->engoption != nullptr);
 
+		case (File::KEYWORD_ENGTURBO) :
+			return (module->engturbo != nullptr);
+
 		case (File::KEYWORD_EXTCAMERA):
 			return (module->ext_camera != nullptr);
 
 		case (File::KEYWORD_FUSEDRAG):
-			return (module->fusedrag != nullptr);
+            return ! module->fusedrag.empty();
 
 		case (File::KEYWORD_GLOBALS):
 			return (module->globals != nullptr);
@@ -243,37 +262,6 @@ bool Validator::AddModule(Ogre::String const & module_name)
 		return true;
 	}
 	return false;
-}
-
-bool Validator::CheckSpecialNodeZero()
-{
-	if (m_file->root_module->nodes.size() == 0)
-	{
-		AddMessage(Message::TYPE_ERROR, "Section 'nodes' in root module is empty. A special node '0' must be defined as a first entry in this module/section.");
-		return false;
-	}
-	else 
-	{
-		RigDef::Node::Id id = m_file->root_module->nodes[0].id;
-
-		if ( (! id.Str().empty()) || (id.Num() != 0) )
-		{
-			std::stringstream msg;
-			msg << "A special node '0' must be defined as a first entry in section 'nodes' (in root module). Found '";
-			if (! id.Str().empty())
-			{
-				msg << id.Str();
-			}
-			else
-			{
-				msg << id.Num();
-			}
-			msg << "' instead.";
-			AddMessage(Message::TYPE_ERROR, msg.str());
-			return false;
-		}
-	}
-	return true;
 }
 
 bool Validator::CheckGearbox()
@@ -447,10 +435,10 @@ bool Validator::CheckTrigger(RigDef::Trigger & def)
 		if (! trigger_blocker && ! inv_trigger_blocker && ! hook_toggle )
 		{
 			/* Make the full check */
-			if (def.shortbound_trigger_key < 1 || def.shortbound_trigger_key > Limits::MAX_COMMANDS)
+			if (def.shortbound_trigger_action < 1 || def.shortbound_trigger_action > Limits::MAX_COMMANDS)
 			{
 				std::stringstream msg;
-				msg << "Wrong parameter 'shortbound_trigger_key': " << def.shortbound_trigger_key;
+				msg << "Wrong parameter 'shortbound_trigger_action': " << def.shortbound_trigger_action;
 				msg << "; Alloved range is <0 - " << Limits::MAX_COMMANDS << ">. ";
 				msg << "Trigger deactivated.";
 				AddMessage(Message::TYPE_ERROR, msg.str());
@@ -460,19 +448,19 @@ bool Validator::CheckTrigger(RigDef::Trigger & def)
 		else if (! hook_toggle)
 		{
 			/* This is a Trigger-Blocker, make special check */
-			if (def.shortbound_trigger_key < 0)
+			if (def.shortbound_trigger_action < 0)
 			{
 				std::stringstream msg;
-				msg << "Wrong parameter 'shortbound_trigger_key': " << def.shortbound_trigger_key;
+				msg << "Wrong parameter 'shortbound_trigger_action': " << def.shortbound_trigger_action;
 				msg << "; Alloved range is <0 - " << Limits::MAX_COMMANDS << ">. ";
 				msg << "Trigger deactivated.";
 				AddMessage(Message::TYPE_ERROR, msg.str());
 				ok = false;
 			}
-			if (def.longbound_trigger_key < 0)
+			if (def.longbound_trigger_action < 0)
 			{
 				std::stringstream msg;
-				msg << "Wrong parameter 'longbound_trigger_key': " << def.longbound_trigger_key;
+				msg << "Wrong parameter 'longbound_trigger_action': " << def.longbound_trigger_action;
 				msg << "; Alloved range is <0 - " << Limits::MAX_COMMANDS << ">. ";
 				msg << "Trigger deactivated.";
 				AddMessage(Message::TYPE_ERROR, msg.str());
@@ -523,6 +511,43 @@ bool Validator::CheckVideoCamera(RigDef::VideoCamera & def)
 	}
 
 	return ok;
+}
+
+std::string Validator::ProcessMessagesToString()
+{
+	if (m_messages.empty())
+	{
+		std::string msg(" == Validating done OK");
+		return msg;
+	}
+
+	std::stringstream report;
+	report << " == Validating done, report:" <<std::endl << std::endl;
+
+	auto itor = m_messages.begin();
+    auto end  = m_messages.end();
+	for( ; itor != end; ++itor)
+	{
+		switch (itor->type)
+		{
+			case (RigDef::Validator::Message::TYPE_FATAL_ERROR):
+				report << "#FF3300 FATAL ERROR #FFFFFF";
+				break;
+			case (RigDef::Validator::Message::TYPE_ERROR):
+				report << "#FF3300 ERROR #FFFFFF";
+				break;
+			case (RigDef::Validator::Message::TYPE_WARNING):
+				report << "#FFFF00 WARNING #FFFFFF";
+				break;
+			default:
+				report << "INFO";
+				break;
+		}
+
+		report << ": " << itor->text << std::endl;
+	}
+
+	return report.str();
 }
 
 } // namespace RigDef

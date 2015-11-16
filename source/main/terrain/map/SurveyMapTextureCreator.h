@@ -17,12 +17,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#pragma once
 #ifndef __SurveyMapTextureCreator_H_
 #define __SurveyMapTextureCreator_H_
 
-#include "RoRPrerequisites.h"
+#include <Ogre.h>
 
-#include "Ogre.h"
+#include "RoRPrerequisites.h"
 
 class SurveyMapTextureCreator : public Ogre::RenderTargetListener, public ZeroedMemoryAllocator
 {

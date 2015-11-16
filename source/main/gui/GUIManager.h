@@ -85,14 +85,15 @@ public:
 	void UpdateSimUtils(float dt, Beam *truck);
 	void framestep(float dt);
 
-	void PushNotification(Ogre::String Title, Ogre::String text);
+	void PushNotification(Ogre::String Title, Ogre::UTFString text);
 
 	void ShowMessageBox(Ogre::String mTitle, Ogre::String mText, bool button1, Ogre::String mButton1, bool AllowClose, bool button2, Ogre::String mButton2);
+	void UpdateMessageBox(Ogre::String mTitle, Ogre::String mText, bool button1, Ogre::String mButton1, bool AllowClose, bool button2, Ogre::String mButton2, bool IsVisible);
 	int getMessageBoxResult(); //TODO
 
 	void ShowMultiPlayerSelector(bool isVisible);
 
-	void initMainSelector();
+	void InitMainSelector(RoR::SkinManager* skin_manager);
 	std::shared_ptr<GUI::MainSelector> getMainSelector() { return m_gui_MainSelector; }
 
 	void initSimUtils();
